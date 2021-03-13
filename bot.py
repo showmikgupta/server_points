@@ -32,16 +32,58 @@ async def on_ready():
 
 
 @bot.event
-async def on_typing(channel, user, when):
-    update_points(channel.guild, user, points=10)
+async def on_member_join(member):
+    doc = get_guild_doc(member.guild)
 
+    if doc is None:
+        create_guild_entry(member.guild)
+    else:
+        create_user_entry(member.guild, member)
+
+
+@bot.event
+async def on_typing(channel, user, when):
+    update_points(channel.guild, user, points=5)
 
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
+    
+    if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
+        print(message.author.id)
+        update_points(message.guild, message.author, points=calculate_points(message))
 
-    if len(message.content) > 5:
-        update_points(message.channel, message.author, points=10)
+
+@bot.event
+async def on_message_delete(message):
+    update_points(message.guild, message.author, points=(-1 * calculate_points(message)))
+
+
+@bot.event
+async def on_message_edit(before, after):
+    # calculate before points
+    before_points = calculate_points(before)
+
+    # calculate after points
+    after_points = calculate_points(after)
+
+    # update with the difference
+    difference = after_points - before_points
+    update_points(before.guild, before.author, points=difference)
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    update_points(reaction.message.guild, user, points = 5)
+
+
+@bot.event
+async def on_reaction_remove(reaction, user):
+    update_points(reaction.message.guild, user, points = -5)
+
+@bot.event
+async def on_member_ban(guild, user):
+    update_points(guild, user, reset=True)
 
 
 @bot.command(name='points', help='Displays how many server points a user has')
@@ -62,6 +104,31 @@ def run():
     bot.run(TOKEN)
 
 
+def calculate_points(message):
+    points = 0
+
+    if message.mention_everyone:
+        points += 5
+    
+    for attachment in message.attachments:
+        points += 5
+    
+    for mention in message.mentions:
+        points += 5
+
+    for mention in message.role_mentions:
+        points += 5
+
+    if 0 > len(message.content) <= 5:
+        points += 5
+    elif len(message.content) <= 10:
+        points += 10
+    else:
+        points += 15
+    
+    return points
+
+
 def get_user_ids(guild):
     ids = []
 
@@ -71,7 +138,12 @@ def get_user_ids(guild):
     return ids
 
 
-def create_new_document(guild):
+def get_guild_doc(guild):
+    query = {'guild_id': guild.id}
+    return collection.find_one(query)
+
+
+def create_guild_entry(guild):
     members = {}
 
     for user_id in get_user_ids(guild):
@@ -86,11 +158,30 @@ def create_new_document(guild):
     collection.insert_one(post)
 
 
+def create_user_entry(guild, user):
+    query = {'guild_id': guild.id}
+    doc = collection.find_one(query)
+
+    if doc is None:
+        create_guild_entry(guild)
+    else:
+        members = doc['members']
+        members[str(user.id)] = 0
+
+        collection.update_one(
+            {'guild_id': guild.id},
+            {"$set":
+                {
+                    'members': members
+                }
+            }
+        )
+
 # checks to see if data on the given server exists
 # if it does exists, it attempts to update the users points
 # if the user does not exist, then it will create data for the user
 # if there is no data on the server, it will create a new entry for it and give everyone 0 points
-def update_points(guild, user, points):
+def update_points(guild, user, points=0, reset=False):
     query = {'guild_id': guild.id}
     doc = collection.find_one(query)
     members = {}
@@ -99,7 +190,10 @@ def update_points(guild, user, points):
         members = doc['members']
         
         try:
-            members[str(user.id)] += points
+            if reset:
+                members[str(user.id)] = 0
+            else:
+                members[str(user.id)] += points
         except KeyError:
             members[str(user.id)] = points
 
@@ -116,7 +210,10 @@ def update_points(guild, user, points):
 
         for user_id in get_user_ids(guild):
             if user_id == user.id:
-                members[str(user_id)] = points
+                if reset:
+                    members[str(user.id)] = 0
+                else:
+                    members[str(user.id)] = points
             else:
                 members[str(user_id)] = 0
         
@@ -129,5 +226,25 @@ def update_points(guild, user, points):
         collection.insert_one(post)
 
     return members
+
+
+def get_points(guild, user):
+    query = {'guild_id': guild.id}
+    doc = collection.find_one(query)
+
+    if doc is None:
+        create_guild_entry(guild)
+
+        return 0
+    else:
+        members = doc['members']
+
+        try:
+            return members[str(user.id)]
+        except KeyError:
+            create_user_entry(guild, user)
+
+            return 0
+
 
 run()
