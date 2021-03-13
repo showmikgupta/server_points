@@ -5,6 +5,10 @@ from discord.ext import commands  # functionality for bots
 import discord
 import pymongo
 from pymongo import MongoClient
+from datetime import datetime, timedelta
+from threading import Timer
+
+import voice_activity as va
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -18,27 +22,46 @@ collection = db["UserData"]
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='$', intents=intents)
 
+active_guilds = []
+ongoing_calls = {}  # will hold information to calculate how many points a user gets for staying in a call
+
 
 # action to perform when bot is ready
 @bot.event
 async def on_ready():
+    active_guilds = bot.guilds
     print("Bot is ready")
-    # post = {'guild_id': 809478788046913616,
-    #         'guild_name': 'Disrupt Studios Test Server',
-    #         'members': {
-    #             '164516819221217280': 100
-    #         }}
-    # collection.insert_one(post)
+
+
+# create new entry for the server
+@bot.event
+async def on_guild_join(guild):
+    create_guild_entry(guild)
+    active_guilds.append(guild)
+
+
+@bot.event
+async def on_guild_update(before, after):
+    collection.update_one(
+            {'guild_id': before.id},
+            {"$set":
+                {
+                    'guild_id': after.id,
+                    'guild_name': after.name,
+                    'members': members
+                }
+            }
+        )
 
 
 @bot.event
 async def on_member_join(member):
-    doc = get_guild_doc(member.guild)
+    create_user_entry(member.guild, member)
 
-    if doc is None:
-        create_guild_entry(member.guild)
-    else:
-        create_user_entry(member.guild, member)
+
+@bot.event
+async def on_member_remove(member):
+    remove_user_entry(member.guild, member)
 
 
 @bot.event
@@ -50,7 +73,6 @@ async def on_message(message):
     await bot.process_commands(message)
     
     if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
-        print(message.author.id)
         update_points(message.guild, message.author, points=calculate_points(message))
 
 
@@ -86,6 +108,65 @@ async def on_member_ban(guild, user):
     update_points(guild, user, reset=True)
 
 
+@bot.event
+async def on_member_unban(guild, user):
+    update_points(guild, user, reset=True)
+
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
+        if after.channel is None:  # disconnecting from a call
+            points = ongoing_calls[str(member.id)].get_points()
+            update_points(before.channel.guild, member, points)
+            del ongoing_calls[str(member.id)]
+        elif after.channel.guild not in active_guilds:  # if leaving a call to another server without this bot added
+            points = ongoing_calls[str(member.id)].get_points()
+            update_points(before.channel.guild, member, points)
+            del ongoing_calls[str(member.id)]
+        elif after.self_mute or after.mute:  # if muted
+            ongoing_calls[str(member.id)].mute()
+        elif after.self_deaf or after.deaf:  # if deafened
+            ongoing_calls[str(member.id)].deafen()
+        elif not after.self_mute or not after.mute:  # if unmuted
+            ongoing_calls[str(member.id)].unmute()
+        elif not after.self_deaf or not after.deaf:  # if undeafened
+            ongoing_calls[str(member.id)].undeafen()
+    else:
+        if after.channel.guild is not None:  # if joining a call
+            muted = deafened = False
+
+            if after.mute or before.self_mute:
+                muted = True
+            
+            if after.deaf or before.self_deaf:
+                deafened = True
+
+            activity = va.VoiceActivityNode(after.channel.guild, member, muted, deafened)
+            ongoing_calls[str(member.id)] = activity
+
+
+def add_call_points():
+    for user_id in ongoing_calls.keys():
+        ongoing_calls[user_id].add_points()
+    
+    start_points_timer()
+
+
+def run():
+    start_points_timer()
+    bot.run(TOKEN)
+
+
+def start_points_timer():
+    x = datetime.now()
+    y = x + timedelta(minutes=15)
+    delta = y-x
+    secs = delta.total_seconds()
+    t = Timer(secs, add_call_points)
+    t.start()
+
+
 @bot.command(name='points', help='Displays how many server points a user has')
 async def points(ctx):
     query = {'guild_id': ctx.guild.id}  # search criteria to see if there is any data on the given server
@@ -99,9 +180,6 @@ async def points(ctx):
             break
 
     await ctx.send(f'{ctx.author} has {points} points')
-
-def run():
-    bot.run(TOKEN)
 
 
 def calculate_points(message):
@@ -176,6 +254,23 @@ def create_user_entry(guild, user):
                 }
             }
         )
+
+
+def remove_user_entry(guild, user):
+    query = {'guild_id': guild.id}
+    doc = collection.find_one(query)
+
+    members = doc['members']
+    del members[str(user.id)]
+
+    collection.update_one(
+        {'guild_id': guild.id},
+        {"$set":
+            {
+                'members': members
+            }
+        }
+    )
 
 # checks to see if data on the given server exists
 # if it does exists, it attempts to update the users points
