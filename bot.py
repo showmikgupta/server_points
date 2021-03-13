@@ -7,7 +7,6 @@ import pymongo
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
-
 import voice_activity as va
 
 load_dotenv()
@@ -153,12 +152,8 @@ def add_call_points():
     start_points_timer()
 
 
-def run():
-    start_points_timer()
-    bot.run(TOKEN)
-
-
 def start_points_timer():
+    print("starting timer")
     x = datetime.now()
     y = x + timedelta(minutes=15)
     delta = y-x
@@ -342,4 +337,6 @@ def get_points(guild, user):
             return 0
 
 
-run()
+def run():
+    start_points_timer()
+    bot.run(TOKEN)
