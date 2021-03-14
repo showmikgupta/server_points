@@ -34,8 +34,12 @@ async def on_error(event, *args, **kwargs):
 # action to perform when bot is ready
 @bot.event
 async def on_ready():
-    active_guilds = bot.guilds
     print("Bot is ready")
+    
+    for guild in bot.guilds:
+        active_guilds.append(guild.id)
+
+    print(active_guilds)
 
 
 # create new entry for the server
@@ -120,37 +124,62 @@ async def on_member_unban(guild, user):
 
 @bot.event
 async def on_voice_state_update(member, before, after):
+    print("voice state updating")
     if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
+        print("entry already exists")
         if after.channel is None:  # disconnecting from a call
+            print("disconnecting")
             points = ongoing_calls[str(member.id)].get_points()
             update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
-        elif after.channel.guild not in active_guilds:  # if leaving a call to another server without this bot added
+        elif after.channel.guild.id not in active_guilds:  # if leaving a call to another server without this bot added
+            print("going to another channel in a different server")
+            print(after.channel.guild.id)
             points = ongoing_calls[str(member.id)].get_points()
             update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
+        elif after.afk:
+            print("going afk")
+            print(ongoing_calls[str(member.id)])
+            ongoing_calls[str(member.id)].go_afk()
         elif after.self_mute or after.mute:  # if muted
+            print("muted")
             ongoing_calls[str(member.id)].mute()
         elif after.self_deaf or after.deaf:  # if deafened
+            print("deafened")
             ongoing_calls[str(member.id)].deafen()
         elif not after.self_mute or not after.mute:  # if unmuted
+            print("unmuted")
             ongoing_calls[str(member.id)].unmute()
         elif not after.self_deaf or not after.deaf:  # if undeafened
+            print("undeafened")
             ongoing_calls[str(member.id)].undeafen()
+        elif not after.afk:
+            print("not afk")
+            ongoing_calls[str(member.id)].unafk()
+        else:
+            print("something else happened")
     else:
         if after.channel is None:
+            print("after channel none")
             return
         if after.channel.guild is not None:  # if joining a call
-            muted = deafened = False
+            muted = deafened = afk = False
 
             if after.mute or before.self_mute:
                 muted = True
             
             if after.deaf or before.self_deaf:
                 deafened = True
+            
+            if after.afk:
+                deafened = True
 
-            activity = va.VoiceActivityNode(after.channel.guild, member, muted, deafened)
+            activity = va.VoiceActivityNode(after.channel.guild, member, muted, deafened, afk)
+            print("created a new VA")
             ongoing_calls[str(member.id)] = activity
+        else:
+            print("something else happened p2")
 
 
 def add_call_points():
@@ -161,7 +190,6 @@ def add_call_points():
 
 
 def start_points_timer():
-    print("starting timer")
     x = datetime.now()
     y = x + timedelta(minutes=15)
     delta = y-x
