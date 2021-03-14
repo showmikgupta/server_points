@@ -25,6 +25,12 @@ active_guilds = []
 ongoing_calls = {}  # will hold information to calculate how many points a user gets for staying in a call
 
 
+@bot.event
+async def on_error(event, *args, **kwargs):
+    message = args[0] #Gets the message object
+    await bot.send_message(message.channel, f"You caused an error!\n{message}")
+
+
 # action to perform when bot is ready
 @bot.event
 async def on_ready():
@@ -132,6 +138,8 @@ async def on_voice_state_update(member, before, after):
         elif not after.self_deaf or not after.deaf:  # if undeafened
             ongoing_calls[str(member.id)].undeafen()
     else:
+        if after.channel is None:
+            return
         if after.channel.guild is not None:  # if joining a call
             muted = deafened = False
 
