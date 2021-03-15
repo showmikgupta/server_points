@@ -221,6 +221,8 @@ async def gamble(ctx, amount):
             else:
                 embed = discord.Embed(title='Gamble Results',
                                       description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
+            
+            await ctx.send(embed=embed)
     else:
         try:
             amount = int(amount)
