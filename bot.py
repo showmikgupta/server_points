@@ -210,7 +210,11 @@ async def gamble(ctx, amount):
     user_points = doc['members'][str(ctx.author.id)]
     min_amount = 1000
 
-    if amount == 'all':
+    if user_points < 1000:
+        embed = discord.Embed(title='Error',
+                              description='Must have atleast 1000 points to gamble', color=0xFFD700)
+        await ctx.send(embed=embed)
+    elif amount == 'all':
         if user_points >= min_amount:
             winnings = gamble_points_basic(user_points)
             update_points(ctx.guild, ctx.author, winnings)
@@ -239,7 +243,7 @@ async def gamble(ctx, amount):
                                           description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
             elif amount < 1000:
                 embed = discord.Embed(title='Error',
-                                      description='Must have atleast 1000 points to gamble', color=0xFFD700)
+                                      description='The minimum amount to bet is 1000 server points', color=0xFFD700)
             elif amount > user_points:
                 embed = discord.Embed(title='Error',
                                       description='You can only gamble the points you have', color=0xFFD700)
