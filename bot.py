@@ -35,11 +35,9 @@ async def on_error(event, *args, **kwargs):
 @bot.event
 async def on_ready():
     print("Bot is ready")
-    
+
     for guild in bot.guilds:
         active_guilds.append(guild.id)
-
-    print(active_guilds)
 
 
 # create new entry for the server
@@ -78,7 +76,7 @@ async def on_typing(channel, user, when):
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
-    
+
     if (not message.content.startswith('$')) and \
        (message.author.id != 818905677010305096):
         update_points(message.guild, message.author, calculate_points(message))
@@ -125,44 +123,31 @@ async def on_member_unban(guild, user):
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    print("voice state updating")
     if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
-        print("entry already exists")
         if after.channel is None:  # disconnecting from a call
-            print("disconnecting")
             points = ongoing_calls[str(member.id)].get_points()
             update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.channel.guild.id not in active_guilds:  # another server
-            print("going to another channel in a different server")
-            print(after.channel.guild.id)
             points = ongoing_calls[str(member.id)].get_points()
             update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.afk:
-            print("going afk")
-            print(ongoing_calls[str(member.id)])
             ongoing_calls[str(member.id)].go_afk()
         elif after.self_mute or after.mute:  # if muted
-            print("muted")
             ongoing_calls[str(member.id)].mute()
         elif after.self_deaf or after.deaf:  # if deafened
-            print("deafened")
             ongoing_calls[str(member.id)].deafen()
         elif not after.self_mute or not after.mute:  # if unmuted
-            print("unmuted")
             ongoing_calls[str(member.id)].unmute()
         elif not after.self_deaf or not after.deaf:  # if undeafened
-            print("undeafened")
             ongoing_calls[str(member.id)].undeafen()
         elif not after.afk:
-            print("not afk")
             ongoing_calls[str(member.id)].unafk()
         else:
             print("something else happened")
     else:
         if after.channel is None:
-            print("after channel none")
             return
         if after.channel.guild is not None:  # if joining a call
             muted = deafened = afk = False
@@ -176,7 +161,6 @@ async def on_voice_state_update(member, before, after):
 
             activity = va.VoiceActivityNode(after.channel.guild, member, muted,
                                             deafened, afk)
-            print("created a new VA")
             ongoing_calls[str(member.id)] = activity
         else:
             print("something else happened p2")
@@ -185,7 +169,7 @@ async def on_voice_state_update(member, before, after):
 def add_call_points():
     for user_id in ongoing_calls.keys():
         ongoing_calls[user_id].add_points()
-    
+
     start_points_timer()
 
 
@@ -215,23 +199,21 @@ async def gamble(ctx, amount):
                               description='Must have atleast 1000 points to gamble', color=0xFFD700)
         await ctx.send(embed=embed)
     elif amount == 'all':
-        print("gambling all")
-        print(user_points)
         winnings = gamble_points_basic(user_points)
         update_points(ctx.guild, ctx.author, winnings)
-        print(winnings)
+
         if winnings > 0:
             embed = discord.Embed(title='Gamble Results',
                                   description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
         else:
             embed = discord.Embed(title='Gamble Results',
                                   description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
-        
+
         await ctx.send(embed=embed)
     else:
         try:
             amount = int(amount)
-            
+
             if min_amount <= amount <= user_points:
                 winnings = gamble_points_basic(amount)
                 update_points(ctx.guild, ctx.author, winnings)
@@ -248,7 +230,7 @@ async def gamble(ctx, amount):
             elif amount > user_points:
                 embed = discord.Embed(title='Error',
                                       description='You can only gamble the points you have', color=0xFFD700)
-            
+
             await ctx.send(embed=embed)
         except ValueError:
             embed = discord.Embed(title='Error',
@@ -266,10 +248,10 @@ def calculate_points(message):
 
     if message.mention_everyone:
         points += 5
-    
+
     for attachment in message.attachments:
         points += 5
-    
+
     for mention in message.mentions:
         points += 5
 
@@ -282,7 +264,7 @@ def calculate_points(message):
         points += 10
     else:
         points += 15
-    
+
     return points
 
 
@@ -305,7 +287,7 @@ def create_guild_entry(guild):
 
     for user_id in get_user_ids(guild):
         members[str(user_id)] = 0
-    
+
     post = {
         'guild_id': guild.id,
         'guild_name': guild.name,
@@ -359,7 +341,7 @@ def update_points(guild, user, points=0, reset=False):
 
     if doc is not None:
         members = doc['members']
-        
+
         try:
             if reset:
                 members[str(user.id)] = 0
@@ -385,7 +367,7 @@ def update_points(guild, user, points=0, reset=False):
                     members[str(user.id)] = points
             else:
                 members[str(user_id)] = 0
-        
+
         post = {
             'guild_id': guild.id,
             'guild_name': guild.name,
