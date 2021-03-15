@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv  # used for getting environment vars
 from discord.ext import commands  # functionality for bots
 import discord
-import pymongo
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
@@ -23,12 +22,12 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 active_guilds = []
-ongoing_calls = {}  # will hold information to calculate how many points a user gets for staying in a call
+ongoing_calls = {}  # holds information on people in ongoing calls
 
 
 @bot.event
 async def on_error(event, *args, **kwargs):
-    message = args[0] #Gets the message object
+    message = args[0]  # Gets the message object
     await bot.send_message(message.channel, f"You caused an error!\n{message}")
 
 
@@ -57,11 +56,8 @@ async def on_guild_update(before, after):
             {"$set":
                 {
                     'guild_id': after.id,
-                    'guild_name': after.name,
-                    'members': members
-                }
-            }
-        )
+                    'guild_name': after.name
+                }})
 
 
 @bot.event
@@ -78,17 +74,20 @@ async def on_member_remove(member):
 async def on_typing(channel, user, when):
     update_points(channel.guild, user, points=5)
 
+
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
     
-    if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
-        update_points(message.guild, message.author, points=calculate_points(message))
+    if (not message.content.startswith('$')) and \
+       (message.author.id != 818905677010305096):
+        update_points(message.guild, message.author, calculate_points(message))
 
 
 @bot.event
 async def on_message_delete(message):
-    update_points(message.guild, message.author, points=(-1 * calculate_points(message)))
+    update_points(message.guild, message.author,
+                  (-1 * calculate_points(message)))
 
 
 @bot.event
@@ -106,12 +105,13 @@ async def on_message_edit(before, after):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    update_points(reaction.message.guild, user, points = 5)
+    update_points(reaction.message.guild, user, 5)
 
 
 @bot.event
 async def on_reaction_remove(reaction, user):
-    update_points(reaction.message.guild, user, points = -5)
+    update_points(reaction.message.guild, user, -5)
+
 
 @bot.event
 async def on_member_ban(guild, user):
@@ -133,7 +133,7 @@ async def on_voice_state_update(member, before, after):
             points = ongoing_calls[str(member.id)].get_points()
             update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
-        elif after.channel.guild.id not in active_guilds:  # if leaving a call to another server without this bot added
+        elif after.channel.guild.id not in active_guilds:  # another server
             print("going to another channel in a different server")
             print(after.channel.guild.id)
             points = ongoing_calls[str(member.id)].get_points()
@@ -169,14 +169,13 @@ async def on_voice_state_update(member, before, after):
 
             if after.mute or before.self_mute:
                 muted = True
-            
             if after.deaf or before.self_deaf:
                 deafened = True
-            
             if after.afk:
                 deafened = True
 
-            activity = va.VoiceActivityNode(after.channel.guild, member, muted, deafened, afk)
+            activity = va.VoiceActivityNode(after.channel.guild, member, muted,
+                                            deafened, afk)
             print("created a new VA")
             ongoing_calls[str(member.id)] = activity
         else:
@@ -201,21 +200,12 @@ def start_points_timer():
 
 @bot.command(name='points', help='Displays how many server points a user has')
 async def points(ctx):
-    query = {'guild_id': ctx.guild.id}  # search criteria to see if there is any data on the given server
-    doc = collection.find_one(query)  # searching database
-    members = update_points(ctx.guild, ctx.author, points=0)  # get all members and their points in a dictionary
-    points = 0
-    
-    for user_id in members:
-        if user_id == str(ctx.author.id):
-            points = members[user_id]
-            break
-
+    points = get_points(ctx.guild, ctx.author)
     await ctx.send(f'{ctx.author} has {points} points')
 
 
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
-async def points(ctx, amount):
+async def gamble(ctx, amount):
     doc = get_guild_doc(ctx.guild)
     user_points = doc['members'][str(ctx.author.id)]
     min_amount = 1000
@@ -226,9 +216,11 @@ async def points(ctx, amount):
             update_points(ctx.guild, ctx.author, winnings)
 
             if winnings > 0:
-                embed = discord.Embed(title='Gamble Results', description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
+                embed = discord.Embed(title='Gamble Results',
+                                      description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
             else:
-                embed = discord.Embed(title='Gamble Results', description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
+                embed = discord.Embed(title='Gamble Results',
+                                      description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
     else:
         try:
             amount = int(amount)
@@ -238,17 +230,22 @@ async def points(ctx, amount):
                 update_points(ctx.guild, ctx.author, winnings)
 
                 if winnings > 0:
-                    embed = discord.Embed(title='Gamble Results', description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
+                    embed = discord.Embed(title='Gamble Results',
+                                          description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
                 else:
-                    embed = discord.Embed(title='Gamble Results', description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
+                    embed = discord.Embed(title='Gamble Results',
+                                          description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
             elif amount < 1000:
-                embed = discord.Embed(title='Error', description='Must have atleast 1000 points to gamble', color=0xFFD700)
+                embed = discord.Embed(title='Error',
+                                      description='Must have atleast 1000 points to gamble', color=0xFFD700)
             elif amount > user_points:
-                embed = discord.Embed(title='Error', description='You can only gamble the points you have', color=0xFFD700)
+                embed = discord.Embed(title='Error',
+                                      description='You can only gamble the points you have', color=0xFFD700)
             
             await ctx.send(embed=embed)
         except ValueError:
-            embed = discord.Embed(title='Error', description='Invalid value entered', color=0xFFD700)
+            embed = discord.Embed(title='Error',
+                                  description='Invalid value entered', color=0xFFD700)
             await ctx.send(embed=embed)
 
 
@@ -325,9 +322,7 @@ def create_user_entry(guild, user):
             {"$set":
                 {
                     'members': members
-                }
-            }
-        )
+                }})
 
 
 def remove_user_entry(guild, user):
@@ -342,9 +337,8 @@ def remove_user_entry(guild, user):
         {"$set":
             {
                 'members': members
-            }
-        }
-    )
+            }})
+
 
 # checks to see if data on the given server exists
 # if it does exists, it attempts to update the users points
@@ -371,9 +365,7 @@ def update_points(guild, user, points=0, reset=False):
             {"$set":
                 {
                     'members': members
-                }
-            }
-        )
+                }})
     else:
         members = {}
 
