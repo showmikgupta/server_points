@@ -49,13 +49,12 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_guild_update(before, after):
-    collection.update_one(
-            {'guild_id': before.id},
-            {"$set":
-                {
-                    'guild_id': after.id,
-                    'guild_name': after.name
-                }})
+    collection.update_one({'guild_id': before.id},
+                          {"$set":
+                              {
+                                  'guild_id': after.id,
+                                  'guild_name': after.name
+                              }})
 
 
 @bot.event
@@ -176,7 +175,7 @@ def add_call_points():
 def start_points_timer():
     x = datetime.now()
     y = x + timedelta(minutes=15)
-    delta = y-x
+    delta = y - x
     secs = delta.total_seconds()
     t = Timer(secs, add_call_points)
     t.start()
