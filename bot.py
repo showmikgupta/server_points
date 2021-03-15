@@ -8,6 +8,7 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
 import voice_activity as va
+import random
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -211,6 +212,48 @@ async def points(ctx):
             break
 
     await ctx.send(f'{ctx.author} has {points} points')
+
+
+@bot.command(name='gamble', help='Gamble a certain amount of server points')
+async def points(ctx, amount):
+    doc = get_guild_doc(ctx.guild)
+    user_points = doc['members'][str(ctx.author.id)]
+    min_amount = 1000
+
+    if amount == 'all':
+        if user_points >= min_amount:
+            winnings = gamble_points_basic(user_points)
+            update_points(ctx.guild, ctx.author, winnings)
+
+            if winnings > 0:
+                embed = discord.Embed(title='Gamble Results', description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
+            else:
+                embed = discord.Embed(title='Gamble Results', description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
+    else:
+        try:
+            amount = int(amount)
+            
+            if min_amount <= amount <= user_points:
+                winnings = gamble_points_basic(amount)
+                update_points(ctx.guild, ctx.author, winnings)
+
+                if winnings > 0:
+                    embed = discord.Embed(title='Gamble Results', description=f'You won {winnings} points! You now have {user_points + winnings} points now', color=0x00FF00)
+                else:
+                    embed = discord.Embed(title='Gamble Results', description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
+            elif amount < 1000:
+                embed = discord.Embed(title='Error', description='Must have atleast 1000 points to gamble', color=0xFFD700)
+            elif amount > user_points:
+                embed = discord.Embed(title='Error', description='You can only gamble the points you have', color=0xFFD700)
+            
+            await ctx.send(embed=embed)
+        except ValueError:
+            embed = discord.Embed(title='Error', description='Invalid value entered', color=0xFFD700)
+            await ctx.send(embed=embed)
+
+
+def gamble_points_basic(points):
+    return (points * 2) if (random.randint(0, 2) == 1) else (points * -1)
 
 
 def calculate_points(message):
