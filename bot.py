@@ -1,7 +1,7 @@
 # bot.py
 import os
-from dotenv import load_dotenv  # used for getting environment vars
-from discord.ext import commands  # functionality for bots
+from dotenv import load_dotenv
+from discord.ext import commands
 import discord
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -184,7 +184,9 @@ def start_points_timer():
 @bot.command(name='points', help='Displays how many server points a user has')
 async def points(ctx):
     points = get_points(ctx.guild, ctx.author)
-    await ctx.send(f'{ctx.author} has {points} points')
+    embed = discord.Embed(title=f"{ctx.author.name}'s Point Total",
+                          description=f'Points: {points}', color=0xFFD700)
+    await ctx.send(embed=embed)
 
 
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
