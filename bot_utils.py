@@ -267,3 +267,30 @@ def get_points(guild, user):
             create_user_entry(guild, user)
 
             return 0
+
+
+def get_xp(guild, user):
+    """Gets the xp total for the given user in the given guild
+
+    Args:
+        guild (discord.Guild): Guild to get user data for
+        user (discord.User): User to get points total for
+
+    Returns:
+        integer: Users xp total
+    """
+    doc = get_guild_doc(guild)
+
+    if doc is None:
+        create_guild_entry(guild)
+
+        return 0
+    else:
+        members = doc['members']
+
+        try:
+            return members[str(user.id)]['xp']
+        except KeyError:
+            create_user_entry(guild, user)
+
+            return 0
