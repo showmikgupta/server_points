@@ -176,7 +176,7 @@ async def points(ctx):
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
 async def gamble(ctx, amount):
     doc = bot_utils.get_guild_doc(ctx.guild)
-    user_points = doc['members'][str(ctx.author.id)]
+    user_points = doc['members'][str(ctx.author.id)]['points']
     min_amount = 1000
 
     if user_points < min_amount:
