@@ -7,7 +7,7 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
 import voice_activity as va
-import random
+import bot_utils
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -43,10 +43,11 @@ async def on_ready():
 # create new entry for the server
 @bot.event
 async def on_guild_join(guild):
-    create_guild_entry(guild)
-    active_guilds.append(guild)
+    bot_utils.create_guild_entry(guild)
+    active_guilds.append(guild.id)
 
 
+# when a server changed its name, afk timeout, etc...
 @bot.event
 async def on_guild_update(before, after):
     collection.update_one({'guild_id': before.id},
@@ -59,65 +60,64 @@ async def on_guild_update(before, after):
 
 @bot.event
 async def on_member_join(member):
-    create_user_entry(member.guild, member)
+    bot_utils.create_user_entry(member.guild, member)
 
 
 @bot.event
 async def on_member_remove(member):
-    remove_user_entry(member.guild, member)
+    bot_utils.remove_user_entry(member.guild, member)
 
 
 @bot.event
 async def on_typing(channel, user, when):
-    update_points(channel.guild, user, points=5)
+    bot_utils.update_points(channel.guild, user, points=5)
 
 
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
 
-    if (not message.content.startswith('$')) and \
-       (message.author.id != 818905677010305096):
-        update_points(message.guild, message.author, calculate_points(message))
+    if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
+        bot_utils.update_points(message.guild, message.author, bot_utils.calculate_points(message))
 
 
 @bot.event
 async def on_message_delete(message):
-    update_points(message.guild, message.author,
-                  (-1 * calculate_points(message)))
+    bot_utils.update_points(message.guild, message.author,
+                            (-1 * bot_utils.calculate_points(message)))
 
 
 @bot.event
 async def on_message_edit(before, after):
     # calculate before points
-    before_points = calculate_points(before)
+    before_points = bot_utils.calculate_points(before)
 
     # calculate after points
-    after_points = calculate_points(after)
+    after_points = bot_utils.calculate_points(after)
 
     # update with the difference
     difference = after_points - before_points
-    update_points(before.guild, before.author, points=difference)
+    bot_utils.update_points(before.guild, before.author, points=difference)
 
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    update_points(reaction.message.guild, user, 5)
+    bot_utils.update_points(reaction.message.guild, user, 5)
 
 
 @bot.event
 async def on_reaction_remove(reaction, user):
-    update_points(reaction.message.guild, user, -5)
+    bot_utils.update_points(reaction.message.guild, user, -5)
 
 
 @bot.event
 async def on_member_ban(guild, user):
-    update_points(guild, user, reset=True)
+    bot_utils.update_points(guild, user, reset=True)
 
 
 @bot.event
 async def on_member_unban(guild, user):
-    update_points(guild, user, reset=True)
+    bot_utils.update_points(guild, user, reset=True)
 
 
 @bot.event
@@ -125,11 +125,11 @@ async def on_voice_state_update(member, before, after):
     if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
         if after.channel is None:  # disconnecting from a call
             points = ongoing_calls[str(member.id)].get_points()
-            update_points(before.channel.guild, member, points)
+            bot_utils.update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.channel.guild.id not in active_guilds:  # another server
             points = ongoing_calls[str(member.id)].get_points()
-            update_points(before.channel.guild, member, points)
+            bot_utils.update_points(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.afk:
             ongoing_calls[str(member.id)].go_afk()
@@ -165,25 +165,9 @@ async def on_voice_state_update(member, before, after):
             print("something else happened p2")
 
 
-def add_call_points():
-    for user_id in ongoing_calls.keys():
-        ongoing_calls[user_id].add_points()
-
-    start_points_timer()
-
-
-def start_points_timer():
-    x = datetime.now()
-    y = x + timedelta(minutes=15)
-    delta = y - x
-    secs = delta.total_seconds()
-    t = Timer(secs, add_call_points)
-    t.start()
-
-
 @bot.command(name='points', help='Displays how many server points a user has')
 async def points(ctx):
-    points = get_points(ctx.guild, ctx.author)
+    points = bot_utils.get_points(ctx.guild, ctx.author)
     embed = discord.Embed(title=f"{ctx.author.name}'s Point Total",
                           description=f'Points: {points}', color=0xFFD700)
     await ctx.send(embed=embed)
@@ -191,7 +175,7 @@ async def points(ctx):
 
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
 async def gamble(ctx, amount):
-    doc = get_guild_doc(ctx.guild)
+    doc = bot_utils.get_guild_doc(ctx.guild)
     user_points = doc['members'][str(ctx.author.id)]
     min_amount = 1000
 
@@ -200,8 +184,8 @@ async def gamble(ctx, amount):
                               description='Must have atleast 1000 points to gamble', color=0xFFD700)
         await ctx.send(embed=embed)
     elif amount == 'all':
-        winnings = gamble_points_basic(user_points)
-        update_points(ctx.guild, ctx.author, winnings)
+        winnings = bot_utils.gamble_points_basic(user_points)
+        bot_utils.update_points(ctx.guild, ctx.author, winnings)
 
         if winnings > 0:
             embed = discord.Embed(title='Gamble Results',
@@ -216,8 +200,8 @@ async def gamble(ctx, amount):
             amount = int(amount)
 
             if min_amount <= amount <= user_points:
-                winnings = gamble_points_basic(amount)
-                update_points(ctx.guild, ctx.author, winnings)
+                winnings = bot_utils.gamble_points_basic(amount)
+                bot_utils.update_points(ctx.guild, ctx.author, winnings)
 
                 if winnings > 0:
                     embed = discord.Embed(title='Gamble Results',
@@ -225,7 +209,7 @@ async def gamble(ctx, amount):
                 else:
                     embed = discord.Embed(title='Gamble Results',
                                           description=f'You lost {amount} points! You now have {user_points + winnings} points now', color=0xFF0000)
-            elif amount < 1000:
+            elif amount < min_amount:
                 embed = discord.Embed(title='Error',
                                       description='The minimum amount to bet is 1000 server points', color=0xFFD700)
             elif amount > user_points:
@@ -239,165 +223,20 @@ async def gamble(ctx, amount):
             await ctx.send(embed=embed)
 
 
-def gamble_points_basic(points):
-    winning_val = random.randint(0, 2)
-    return (points * 2) if (winning_val == 1) else (points * -1)
+def add_call_points():
+    for user_id in ongoing_calls.keys():
+        ongoing_calls[user_id].add_points()
+
+    start_points_timer()
 
 
-def calculate_points(message):
-    points = 0
-
-    if message.mention_everyone:
-        points += 5
-
-    for attachment in message.attachments:
-        points += 5
-
-    for mention in message.mentions:
-        points += 5
-
-    for mention in message.role_mentions:
-        points += 5
-
-    if 0 > len(message.content) <= 5:
-        points += 5
-    elif len(message.content) <= 10:
-        points += 10
-    else:
-        points += 15
-
-    return points
-
-
-def get_user_ids(guild):
-    ids = []
-
-    for user in guild.members:
-        ids.append(user.id)
-
-    return ids
-
-
-def get_guild_doc(guild):
-    query = {'guild_id': guild.id}
-    return collection.find_one(query)
-
-
-def create_guild_entry(guild):
-    members = {}
-
-    for user_id in get_user_ids(guild):
-        members[str(user_id)] = 0
-
-    post = {
-        'guild_id': guild.id,
-        'guild_name': guild.name,
-        'members': members
-    }
-
-    collection.insert_one(post)
-
-
-def create_user_entry(guild, user):
-    query = {'guild_id': guild.id}
-    doc = collection.find_one(query)
-
-    if doc is None:
-        create_guild_entry(guild)
-    else:
-        members = doc['members']
-        members[str(user.id)] = 0
-
-        collection.update_one(
-            {'guild_id': guild.id},
-            {"$set":
-                {
-                    'members': members
-                }})
-
-
-def remove_user_entry(guild, user):
-    query = {'guild_id': guild.id}
-    doc = collection.find_one(query)
-
-    members = doc['members']
-    del members[str(user.id)]
-
-    collection.update_one(
-        {'guild_id': guild.id},
-        {"$set":
-            {
-                'members': members
-            }})
-
-
-# checks to see if data on the given server exists
-# if it does exists, it attempts to update the users points
-# if the user does not exist, then it will create data for the user
-# if there is no data on the server, it will create a new entry for it and give everyone 0 points
-def update_points(guild, user, points=0, reset=False):
-    query = {'guild_id': guild.id}
-    doc = collection.find_one(query)
-    members = {}
-
-    if doc is not None:
-        members = doc['members']
-
-        try:
-            if reset:
-                members[str(user.id)] = 0
-            else:
-                members[str(user.id)] += points
-        except KeyError:
-            members[str(user.id)] = points
-
-        collection.update_one(
-            {'guild_id': guild.id},
-            {"$set":
-                {
-                    'members': members
-                }})
-    else:
-        members = {}
-
-        for user_id in get_user_ids(guild):
-            if user_id == user.id:
-                if reset:
-                    members[str(user.id)] = 0
-                else:
-                    members[str(user.id)] = points
-            else:
-                members[str(user_id)] = 0
-
-        post = {
-            'guild_id': guild.id,
-            'guild_name': guild.name,
-            'members': members
-        }
-
-        collection.insert_one(post)
-
-    return members
-
-
-def get_points(guild, user):
-    query = {'guild_id': guild.id}
-    doc = collection.find_one(query)
-
-    if doc is None:
-        create_guild_entry(guild)
-
-        return 0
-    else:
-        members = doc['members']
-
-        try:
-            return members[str(user.id)]
-        except KeyError:
-            create_user_entry(guild, user)
-
-            return 0
-
+def start_points_timer():
+    x = datetime.now()
+    y = x + timedelta(minutes=15)
+    delta = y - x
+    secs = delta.total_seconds()
+    t = Timer(secs, add_call_points)
+    t.start()
 
 def run():
     start_points_timer()
