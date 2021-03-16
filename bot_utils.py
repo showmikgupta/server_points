@@ -262,7 +262,7 @@ def get_points(guild, user):
         members = doc['members']
 
         try:
-            return members[str(user.id)]
+            return members[str(user.id)]['points']
         except KeyError:
             create_user_entry(guild, user)
 
