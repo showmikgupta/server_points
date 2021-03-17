@@ -34,4 +34,3 @@ class UserData:
 
     def update_xp(self, xp):
         self.xp += xp
-
