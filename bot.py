@@ -1,11 +1,12 @@
 # bot.py
 import os
+from threading import Timer
+
 from dotenv import load_dotenv
 from discord.ext import commands
 import discord
 from pymongo import MongoClient
 from datetime import datetime, timedelta
-from threading import Timer
 
 import bot_utils
 from VoiceActivity import VoiceActivity
