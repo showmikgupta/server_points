@@ -1,4 +1,4 @@
-class VoiceActivityNode:
+class VoiceActivity:
     """Class for representing someones voice activty i.e. being muted"""
     def __init__(self, guild, user, muted=False, deafened=False, afk=False):
         self.guild = guild
