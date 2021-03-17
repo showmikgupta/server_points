@@ -47,7 +47,7 @@ def gamble_points_basic(bet_amount):
     return (bet_amount) if (winning_val == 1) else (bet_amount * -1)
 
 
-def calculate_points(message):
+def calculate_message_points(message):
     """Calculated how many points a message is worth based on the content and length
 
     Args:
@@ -78,6 +78,34 @@ def calculate_points(message):
         points += 15
 
     return points
+
+
+def calculate_levelup_points(level):
+    """Determined how many points should be awarded when someone
+       levels up based their updated level
+
+    Args:
+        level (integer): level of the user
+
+    Returns:
+        integer: Amount of points awarded to the user based on level
+    """
+    if 1 <= level <= 5:                 # F
+        return 500
+    elif 6 <= level <= 10:              # E
+        return 900
+    elif 11 <= level <= 15:             # D
+        return 1500
+    elif 16 <= level <= 18:             # C
+        return 3000
+    elif 19 <= level <= 21:             # B
+        return 4800
+    elif 22 <= level <= 24:             # A
+        return 7000
+    elif 25 <= level <= 26:             # S
+        return 10000
+    else:                               # SS
+        return 50000
 
 
 def get_user_ids(guild):
@@ -260,6 +288,10 @@ def update_xp(guild, user, xp, reset=False):
         members = create_guild_entry(guild)
 
     return members
+
+
+def needs_level_up(current_level):
+    return True
 
 
 def get_points(guild, user):
