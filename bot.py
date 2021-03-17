@@ -7,8 +7,8 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
 
-import voice_activity as va
 import bot_utils
+from VoiceActivity import VoiceActivity
 from UserData import UserData
 
 UPDATE_DOCS = False
@@ -162,8 +162,8 @@ async def on_voice_state_update(member, before, after):
             if after.afk:
                 deafened = True
 
-            activity = va.VoiceActivityNode(after.channel.guild, member, muted,
-                                            deafened, afk)
+            activity = VoiceActivity(after.channel.guild, member, muted,
+                                     deafened, afk)
             ongoing_calls[str(member.id)] = activity
         else:
             print("something else happened p2")
