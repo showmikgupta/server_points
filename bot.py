@@ -6,8 +6,12 @@ import discord
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from threading import Timer
+
 import voice_activity as va
 import bot_utils
+from UserData import UserData
+
+UPDATE_DOCS = False
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -239,5 +243,29 @@ def start_points_timer():
     t.start()
 
 def run():
+    if UPDATE_DOCS:
+        upgrade_database()
+
     start_points_timer()
     bot.run(TOKEN)
+
+def upgrade_database():
+    docs = collection.find({})
+
+    for doc in docs:
+        updated_members = {}
+        members = doc['members']
+
+        for user_id in members.keys():
+            points = members[user_id]['points']
+            level = members[user_id]['level']
+            xp = members[user_id]['xp']
+
+            updated_members[user_id] = bot_utils.encode_userdata(UserData(user_id, points, level, xp))
+
+        collection.update_one(
+            {'guild_id': doc['guild_id']},
+            {"$set":
+                {
+                    'members': updated_members
+                }})
