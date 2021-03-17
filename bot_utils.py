@@ -1,7 +1,9 @@
 import random
 import os
+
 from pymongo import MongoClient
 from dotenv import load_dotenv
+
 from UserData import UserData
 
 load_dotenv()
@@ -10,6 +12,26 @@ CONNECTION_URL = os.getenv('MONGODB_CONNECTION_URL')
 cluster = MongoClient(CONNECTION_URL)
 db = cluster["UserData"]
 collection = db["UserData"]
+
+
+def encode_userdata(userdata):
+    return {
+        '_type': 'UserData',
+        'user_id': userdata.get_user_id(),
+        'points': userdata.get_points(),
+        'level': userdata.get_level(),
+        'xp': userdata.get_xp()
+    }
+
+
+def decode_userdata(document):
+    assert document['_type'] == 'UserData'
+    user_id = document['user_id']
+    points = document['points']
+    level = document['level']
+    xp = document['xp']
+
+    return UserData(user_id, points, level, xp)
 
 
 def gamble_points_basic(bet_amount):
@@ -100,7 +122,7 @@ def create_guild_entry(guild):
     members = {}
 
     for user_id in get_user_ids(guild):
-        members[str(user_id)] = UserData(0, 1, 0)
+        members[str(user_id)] = encode_userdata(UserData(user_id, 0, 1, 0))
 
     post = {
         'guild_id': guild.id,
@@ -125,7 +147,7 @@ def create_user_entry(guild, user):
         create_guild_entry(guild)
     else:
         members = doc['members']
-        members[str(user.id)] = UserData(0, 1, 0)
+        members[str(user.id)] = encode_userdata(UserData(user.id, 0, 1, 0))
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -178,9 +200,13 @@ def update_points(guild, user, points, reset=False):
             if reset:
                 create_user_entry(guild, user)
             else:
-                members[str(user.id)].update_points(points)
+                user_data = decode_userdata(members[str(user.id)])
+                user_data.update_points(points)
+                members[str(user.id)] = encode_userdata(user_data)
         except KeyError:
-            members[str(user.id)].set_points(points)
+            user_data = decode_userdata(members[str(user.id)])
+            user_data.set_points(points)
+            members[str(user.id)] = encode_userdata(user_data)
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -216,9 +242,13 @@ def update_xp(guild, user, xp, reset=False):
             if reset:
                 create_user_entry(guild, user)
             else:
-                members[str(user.id)].update_xp(xp)
+                user_data = decode_userdata(members[str(user.id)])
+                user_data.update_xp(xp)
+                members[str(user.id)] = encode_userdata(user_data)
         except KeyError:
-            members[str(user.id)].set_xp(xp)
+            user_data = decode_userdata(members[str(user.id)])
+            user_data.set_xp(xp)
+            members[str(user.id)] = encode_userdata(user_data)
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -252,7 +282,7 @@ def get_points(guild, user):
         members = doc['members']
 
         try:
-            return members[str(user.id)].get_points()
+            return decode_userdata(members[str(user.id)]).get_points()
         except KeyError:
             create_user_entry(guild, user)
 
@@ -279,7 +309,7 @@ def get_xp(guild, user):
         members = doc['members']
 
         try:
-            return members[str(user.id)].get_xp()
+            return decode_userdata(members[str(user.id)]).get_xp()
         except KeyError:
             create_user_entry(guild, user)
 
