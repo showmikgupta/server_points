@@ -2,6 +2,7 @@ import random
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from UserData import UserData
 
 load_dotenv()
 CONNECTION_URL = os.getenv('MONGODB_CONNECTION_URL')
@@ -97,14 +98,9 @@ def create_guild_entry(guild):
         dict:  Most up to date member information
     """
     members = {}
-    member_info = {
-        'points': 0,
-        'xp': 0,
-        'level': 0
-    }
 
     for user_id in get_user_ids(guild):
-        members[str(user_id)] = member_info
+        members[str(user_id)] = UserData(0, 1, 0)
 
     post = {
         'guild_id': guild.id,
@@ -128,14 +124,8 @@ def create_user_entry(guild, user):
     if doc is None:
         create_guild_entry(guild)
     else:
-        member_info = {
-            'points': 0,
-            'xp': 0,
-            'level': 0
-        }
-
         members = doc['members']
-        members[str(user.id)] = member_info
+        members[str(user.id)] = UserData(0, 1, 0)
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -188,9 +178,9 @@ def update_points(guild, user, points, reset=False):
             if reset:
                 create_user_entry(guild, user)
             else:
-                members[str(user.id)]['points'] += points
+                members[str(user.id)].update_points(points)
         except KeyError:
-            members[str(user.id)]['points'] = points
+            members[str(user.id)].set_points(points)
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -226,9 +216,9 @@ def update_xp(guild, user, xp, reset=False):
             if reset:
                 create_user_entry(guild, user)
             else:
-                members[str(user.id)]['xp'] += xp
+                members[str(user.id)].update_xp(xp)
         except KeyError:
-            members[str(user.id)]['xp'] = xp
+            members[str(user.id)].set_xp(xp)
 
         collection.update_one(
             {'guild_id': guild.id},
@@ -262,7 +252,7 @@ def get_points(guild, user):
         members = doc['members']
 
         try:
-            return members[str(user.id)]['points']
+            return members[str(user.id)].get_points()
         except KeyError:
             create_user_entry(guild, user)
 
@@ -289,7 +279,7 @@ def get_xp(guild, user):
         members = doc['members']
 
         try:
-            return members[str(user.id)]['xp']
+            return members[str(user.id)].get_xp()
         except KeyError:
             create_user_entry(guild, user)
 

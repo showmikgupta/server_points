@@ -22,3 +22,12 @@ class UserData:
     def set_xp(self, xp):
         self.xp = xp
 
+    def update_points(self, points):
+        self.points += points
+
+    def update_level(self, level):
+        self.level += level
+
+    def update_xp(self, xp):
+        self.xp += xp
+
