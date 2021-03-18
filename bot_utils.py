@@ -1,5 +1,6 @@
 import random
 import os
+import math
 
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -101,9 +102,9 @@ def calculate_levelup_points(level):
     elif 19 <= level <= 21:             # B
         return 4800
     elif 22 <= level <= 24:             # A
-        return 7000
-    elif 25 <= level <= 26:             # S
         return 10000
+    elif 25 <= level <= 26:             # S
+        return 25000
     else:                               # SS
         return 50000
 
@@ -273,7 +274,7 @@ def update_xp(guild, user, xp, reset=False):
                 user_data = decode_userdata(members[str(user.id)])
                 user_data.update_xp(xp)
                 # check to see if they crossed the threshold
-                if needs_level_up(user_data.get_level()):
+                if needs_level_up(user_data.get_level(), user_data.get_xp()):
                     # level up
                     user_data.update_level(1)
                     # add points
@@ -297,8 +298,16 @@ def update_xp(guild, user, xp, reset=False):
     return members
 
 
-def needs_level_up(current_level):
-    return True
+def needs_level_up(level, xp):
+    xp_scale_factor = 1
+
+    if level <= 24:  # Rank A or under
+        xp_needed = .2 * xp_scale_factor * (level * level)
+    else:
+        starting_val = .2 * xp_scale_factor * (625)
+        xp_needed = starting_val + (10 * xp_scale_factor * math.log(level, 2))
+
+    return True if xp >= xp_needed else False
 
 
 def get_points(guild, user):
