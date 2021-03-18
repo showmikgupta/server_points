@@ -88,8 +88,7 @@ async def on_message(message):
 
 @bot.event
 async def on_message_delete(message):
-    bot_utils.update_xp(message.guild, message.author,
-                            (-1 * bot_utils.calculate_message_points(message)))
+    bot_utils.update_xp(message.guild, message.author, (-1 * bot_utils.calculate_message_points(message)))
 
 
 @bot.event
