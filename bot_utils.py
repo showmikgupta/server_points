@@ -272,6 +272,13 @@ def update_xp(guild, user, xp, reset=False):
             else:
                 user_data = decode_userdata(members[str(user.id)])
                 user_data.update_xp(xp)
+                # check to see if they crossed the threshold
+                if needs_level_up(user_data.get_level()):
+                    # level up
+                    user_data.update_level(1)
+                    # add points
+                    award = calculate_levelup_points(user_data.get_level())
+                    update_points(guild, user, award)
                 members[str(user.id)] = encode_userdata(user_data)
         except KeyError:
             user_data = decode_userdata(members[str(user.id)])
