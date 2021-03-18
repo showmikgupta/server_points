@@ -75,7 +75,7 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_typing(channel, user, when):
-    bot_utils.update_points(channel.guild, user, points=5)
+    bot_utils.update_xp(channel.guild, user, points=5)
 
 
 @bot.event
@@ -83,45 +83,47 @@ async def on_message(message):
     await bot.process_commands(message)
 
     if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
-        bot_utils.update_points(message.guild, message.author, bot_utils.calculate_points(message))
+        bot_utils.update_xp(message.guild, message.author, bot_utils.calculate_message_points(message))
 
 
 @bot.event
 async def on_message_delete(message):
-    bot_utils.update_points(message.guild, message.author,
-                            (-1 * bot_utils.calculate_points(message)))
+    bot_utils.update_xp(message.guild, message.author,
+                            (-1 * bot_utils.calculate_message_points(message)))
 
 
 @bot.event
 async def on_message_edit(before, after):
     # calculate before points
-    before_points = bot_utils.calculate_points(before)
+    before_points = bot_utils.calculate_message_points(before)
 
     # calculate after points
-    after_points = bot_utils.calculate_points(after)
+    after_points = bot_utils.calculate_message_points(after)
 
     # update with the difference
     difference = after_points - before_points
-    bot_utils.update_points(before.guild, before.author, points=difference)
+    bot_utils.update_xp(before.guild, before.author, points=difference)
 
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    bot_utils.update_points(reaction.message.guild, user, 5)
+    bot_utils.update_xp(reaction.message.guild, user, 5)
 
 
 @bot.event
 async def on_reaction_remove(reaction, user):
-    bot_utils.update_points(reaction.message.guild, user, -5)
+    bot_utils.update_xp(reaction.message.guild, user, -5)
 
 
 @bot.event
 async def on_member_ban(guild, user):
+    bot_utils.update_xp(guild, user, reset=True)
     bot_utils.update_points(guild, user, reset=True)
 
 
 @bot.event
 async def on_member_unban(guild, user):
+    bot_utils.update_xp(guild, user, reset=True)
     bot_utils.update_points(guild, user, reset=True)
 
 
@@ -130,11 +132,11 @@ async def on_voice_state_update(member, before, after):
     if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
         if after.channel is None:  # disconnecting from a call
             points = ongoing_calls[str(member.id)].get_points()
-            bot_utils.update_points(before.channel.guild, member, points)
+            bot_utils.update_xp(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.channel.guild.id not in active_guilds:  # another server
             points = ongoing_calls[str(member.id)].get_points()
-            bot_utils.update_points(before.channel.guild, member, points)
+            bot_utils.update_xp(before.channel.guild, member, points)
             del ongoing_calls[str(member.id)]
         elif after.afk:
             ongoing_calls[str(member.id)].go_afk()
