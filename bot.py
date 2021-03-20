@@ -239,6 +239,11 @@ async def gamble(ctx, amount):
             await ctx.send(embed=embed)
 
 
+@bot.command(name='store', help='Displays what you can buy in the store')
+async def store(ctx):
+    await ctx.send("Shop is WIP")
+
+
 def add_call_points():
     for user_id in ongoing_calls.keys():
         ongoing_calls[user_id].add_points()
