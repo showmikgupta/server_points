@@ -179,6 +179,11 @@ async def points(ctx):
     await ctx.send(embed=embed)
 
 
+@bot.command(name='gift')
+async def gift_points(ctx):
+    await ctx.send("gift WIP")
+
+
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
 async def gamble(ctx, amount):
     doc = bot_utils.get_guild_doc(ctx.guild)
