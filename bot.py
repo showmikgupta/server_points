@@ -249,6 +249,11 @@ async def store(ctx):
     await ctx.send("Shop is WIP")
 
 
+@bot.command(name='leaderboard')
+async def leaderboard(ctx):
+    await ctx.send("leaderboard is WIP")
+
+
 def add_call_points():
     for user_id in ongoing_calls.keys():
         ongoing_calls[user_id].add_points()
