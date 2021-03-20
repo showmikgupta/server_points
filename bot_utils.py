@@ -299,15 +299,31 @@ def update_xp(guild, user, xp, reset=False):
 
 
 def needs_level_up(level, xp):
-    xp_scale_factor = 1
+    # if level <= 21:  # Rank B or under
+    #     xp_needed = quadratic_level_fx_basic(level)
+    # else:
+    #     starting_val = quadratic_level_fx_basic(21)
+    #     xp_needed = starting_val + log_level_fx(level)
 
-    if level <= 24:  # Rank A or under
-        xp_needed = .2 * xp_scale_factor * (level * level)
+    # return True if xp >= xp_needed else False
+    if xp >= quadratic_level_fx(level):
+        return True
     else:
-        starting_val = .2 * xp_scale_factor * (625)
-        xp_needed = starting_val + (10 * xp_scale_factor * math.log(level, 2))
+        return False
 
-    return True if xp >= xp_needed else False
+
+def quadratic_level_fx(x):
+    return (40 * (x**2)) + (25 * x)  # 40x^2 + 25x
+
+
+def quadratic_level_fx_basic(x):
+    scale_factor = 1
+    return .2 * scale_factor * (x**2)
+
+
+def log_level_fx(x):
+    scale_factor = 1
+    return 10 * scale_factor * math.log(x, 2)
 
 
 def get_points(guild, user):
