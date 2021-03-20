@@ -51,6 +51,12 @@ async def on_guild_join(guild):
     bot_utils.create_guild_entry(guild)
     active_guilds.append(guild.id)
 
+    for member in guild.members:
+        await member.create_dm()
+        await member.dm_channel.send(
+            "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
+        )
+
 
 # when a server changed its name, afk timeout, etc...
 @bot.event
@@ -66,6 +72,10 @@ async def on_guild_update(before, after):
 @bot.event
 async def on_member_join(member):
     bot_utils.create_user_entry(member.guild, member)
+    await member.create_dm()
+    await member.dm_channel.send(
+            "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
+    )
 
 
 @bot.event
@@ -75,7 +85,7 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_typing(channel, user, when):
-    bot_utils.update_xp(channel.guild, user, points=5)
+    bot_utils.update_xp(channel.guild, user, 5)
 
 
 @bot.event
@@ -101,7 +111,7 @@ async def on_message_edit(before, after):
 
     # update with the difference
     difference = after_points - before_points
-    bot_utils.update_xp(before.guild, before.author, points=difference)
+    bot_utils.update_xp(before.guild, before.author, difference)
 
 
 @bot.event
