@@ -75,7 +75,7 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_typing(channel, user, when):
-    bot_utils.update_xp(channel.guild, user, points=5)
+    bot_utils.update_xp(channel.guild, user, 5)
 
 
 @bot.event
@@ -101,7 +101,7 @@ async def on_message_edit(before, after):
 
     # update with the difference
     difference = after_points - before_points
-    bot_utils.update_xp(before.guild, before.author, points=difference)
+    bot_utils.update_xp(before.guild, before.author, difference)
 
 
 @bot.event
@@ -227,6 +227,18 @@ async def gamble(ctx, amount):
             embed = discord.Embed(title='Error',
                                   description='Invalid value entered', color=0xFFD700)
             await ctx.send(embed=embed)
+
+
+@bot.command(name='rank', help='Displays user current rank and exp')
+async def rank(ctx):
+    rank = bot_utils.get_xp(ctx.guild, ctx.author)
+    doc = bot_utils.get_guild_doc(ctx.guild)
+    members = doc['members']
+    user_info = members[str(ctx.author.id)]
+    user_data = bot_utils.decode_userdata(user_info)
+    embed = discord.Embed(title=f"{ctx.author.name}'s Rank",
+                          description="Rank:"+bot_utils.rankLevelXp(user_data), color=0xFFD700)
+    await ctx.send(embed=embed)
 
 
 def add_call_points():
