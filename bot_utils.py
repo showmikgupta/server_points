@@ -380,7 +380,7 @@ def get_xp(guild, user):
             return 0
 
 
-def rankLevelXp(user_data):
+def level_to_rank(user_data):
     if user_data.get_level() == 1:
         return "F5"
     if user_data.get_level() == 2:
