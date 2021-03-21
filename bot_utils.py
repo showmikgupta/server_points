@@ -380,13 +380,13 @@ def get_xp(guild, user):
             return 0
 
 
-def send_money(guild, sender_id, recipient_id, amount):
+def send_points(guild, sender_id, recipient_id, amount):
     doc = get_guild_doc(guild)
     members = doc['members']
     sender_data = decode_userdata(members[str(sender_id)])
     recipient_data = decode_userdata(members[str(recipient_id)])
 
-    sender_data.update_points(-amount)
+    sender_data.update_points(-1 * amount)
     recipient_data.update_points(amount)
 
     members[str(sender_id)] = encode_userdata(sender_data)
