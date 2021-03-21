@@ -246,13 +246,14 @@ async def gamble(ctx, amount):
 
 @bot.command(name='rank', help='Displays user current rank and exp')
 async def rank(ctx):
-    rank = bot_utils.get_xp(ctx.guild, ctx.author)
+    xp = bot_utils.get_xp(ctx.guild, ctx.author)
     doc = bot_utils.get_guild_doc(ctx.guild)
     members = doc['members']
     user_info = members[str(ctx.author.id)]
     user_data = bot_utils.decode_userdata(user_info)
     embed = discord.Embed(title=f"{ctx.author.name}'s Rank",
-                          description="Rank:"+bot_utils.rankLevelXp(user_data), color=0xFFD700)
+                          description=f"Rank: {bot_utils.get_user_rank(user_data)}\nXP: {xp}",
+                          color=0xFFD700)
     await ctx.send(embed=embed)
 
 
