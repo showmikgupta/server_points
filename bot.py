@@ -1,5 +1,6 @@
 # bot.py
 import os
+import operator
 from threading import Timer
 
 from dotenv import load_dotenv
@@ -264,7 +265,30 @@ async def store(ctx):
 
 @bot.command(name='leaderboard')
 async def leaderboard(ctx):
-    await ctx.send("leaderboard is WIP")
+    # get all user data
+    doc = bot_utils.get_guild_doc(ctx.guild)
+    members = doc['members']
+
+    # get xp for all users
+    xp = []
+
+    for (user_id, user_data) in members.items():
+        xp.append(bot_utils.decode_userdata(user_data))
+
+    # Sort the XP from greatest to least
+    sorted_xp = sorted(xp, key=operator.attrgetter('xp'))
+    sorted_xp.reverse()
+
+    # display top 10
+    top_ten_xp = sorted_xp[0:10]
+    leaderboard_string = ""
+
+    for i, val in enumerate(top_ten_xp):
+        username = await bot.fetch_user(val.get_user_id())
+        leaderboard_string += f"{i + 1}. {username}\n"
+
+    embed = discord.Embed(title='XP Leaderboard', description=leaderboard_string, color=0xFF0000)
+    await ctx.send(embed=embed)
 
 
 def add_call_points():
