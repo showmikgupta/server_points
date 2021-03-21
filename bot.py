@@ -51,6 +51,12 @@ async def on_guild_join(guild):
     bot_utils.create_guild_entry(guild)
     active_guilds.append(guild.id)
 
+    for member in guild.members:
+        await member.create_dm()
+        await member.dm_channel.send(
+            "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
+        )
+
 
 # when a server changed its name, afk timeout, etc...
 @bot.event
@@ -66,6 +72,10 @@ async def on_guild_update(before, after):
 @bot.event
 async def on_member_join(member):
     bot_utils.create_user_entry(member.guild, member)
+    await member.create_dm()
+    await member.dm_channel.send(
+        "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
+    )
 
 
 @bot.event
@@ -179,6 +189,11 @@ async def points(ctx):
     await ctx.send(embed=embed)
 
 
+@bot.command(name='gift')
+async def gift_points(ctx):
+    await ctx.send("gift WIP")
+
+
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
 async def gamble(ctx, amount):
     doc = bot_utils.get_guild_doc(ctx.guild)
@@ -239,6 +254,16 @@ async def rank(ctx):
     embed = discord.Embed(title=f"{ctx.author.name}'s Rank",
                           description="Rank:"+bot_utils.rankLevelXp(user_data), color=0xFFD700)
     await ctx.send(embed=embed)
+
+
+@bot.command(name='store', help='Displays what you can buy in the store')
+async def store(ctx):
+    await ctx.send("Shop is WIP")
+
+
+@bot.command(name='leaderboard')
+async def leaderboard(ctx):
+    await ctx.send("leaderboard is WIP")
 
 
 def add_call_points():
