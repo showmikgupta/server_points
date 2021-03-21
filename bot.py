@@ -75,7 +75,7 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_typing(channel, user, when):
-    bot_utils.update_xp(channel.guild, user, points=5)
+    bot_utils.update_xp(channel.guild, user, 5)
 
 
 @bot.event
@@ -101,7 +101,7 @@ async def on_message_edit(before, after):
 
     # update with the difference
     difference = after_points - before_points
-    bot_utils.update_xp(before.guild, before.author, points=difference)
+    bot_utils.update_xp(before.guild, before.author, difference)
 
 
 @bot.event
@@ -180,8 +180,31 @@ async def points(ctx):
 
 
 @bot.command(name='gift')
-async def gift_points(ctx):
-    await ctx.send("gift WIP")
+async def gift_points(ctx, recipient, amount):
+    # make sure recipient exists in the server
+    recipient_user_id = recipient[3:][:-1]
+    recipient_user_id = int(recipient_user_id)
+
+    # convert the amount (string) into an integer
+    try:
+        amount = int(amount)
+    except ValueError:
+        embed = discord.Embed(title="Error", description='Invalid amount entered', color=0xFFD700)
+        await ctx.send(embed=embed)
+
+    # check senders balance
+    senders_balance = bot_utils.get_points(ctx.guild, ctx.author)
+
+    if senders_balance >= amount:
+        # add amount to recipient and subtract from sender --> reupdate db
+        bot_utils.send_money(ctx.guild, ctx.author.id, recipient_user_id, amount)
+
+        recipient_name = await bot.fetch_user(recipient_user_id)
+        embed = discord.Embed(title='Points Gifted', description=f"{ctx.author} gifted {recipient_name} {amount} points", color=0xFFD700)
+        await ctx.send(embed=embed)
+    else:
+        embed = discord.Embed(title="Error", description='Insufficient Points', color=0xFFD700)
+        await ctx.send(embed=embed)
 
 
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
