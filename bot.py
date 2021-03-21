@@ -205,21 +205,27 @@ async def gift_points(ctx, recipient, amount):
     try:
         amount = int(amount)
     except ValueError:
-        embed = discord.Embed(title="Error", description='Invalid amount entered', color=0xFFD700)
+        embed = discord.Embed(title="Error", description='Invalid amount entered', color=ERROR_COLOR)
         await ctx.send(embed=embed)
+        return
 
     # check senders balance
     senders_balance = bot_utils.get_points(ctx.guild, ctx.author)
 
     if senders_balance >= amount:
         # add amount to recipient and subtract from sender --> reupdate db
-        bot_utils.send_money(ctx.guild, ctx.author.id, recipient_user_id, amount)
+        if ctx.author.id == recipient_user_id:
+            embed = discord.Embed(title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
+            await ctx.send(embed=embed)
+            return
+        else:
+            bot_utils.send_points(ctx.guild, ctx.author.id, recipient_user_id, amount)
 
-        recipient_name = await bot.fetch_user(recipient_user_id)
-        embed = discord.Embed(title='Points Gifted', description=f"{ctx.author} gifted {recipient_name} {amount} points", color=0xFFD700)
+        recipient_user = await bot.fetch_user(recipient_user_id)
+        embed = discord.Embed(title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
         await ctx.send(embed=embed)
     else:
-        embed = discord.Embed(title="Error", description='Insufficient Points', color=0xFFD700)
+        embed = discord.Embed(title="Error", description='Insufficient Points', color=ERROR_COLOR)
         await ctx.send(embed=embed)
 
 
