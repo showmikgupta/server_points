@@ -269,7 +269,7 @@ async def store(ctx):
     await ctx.send("Shop is WIP")
 
 
-@bot.command(name='leaderboard')
+@bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
 async def leaderboard(ctx):
     # get all user data
     doc = bot_utils.get_guild_doc(ctx.guild)
@@ -286,12 +286,18 @@ async def leaderboard(ctx):
     sorted_xp.reverse()
 
     # display top 10
-    top_ten_xp = sorted_xp[0:10]
     leaderboard_string = ""
+    counter = 1
 
-    for i, val in enumerate(top_ten_xp):
-        username = await bot.fetch_user(val.get_user_id())
-        leaderboard_string += f"{i + 1}. {username}\n"
+    for user_data in sorted_xp:
+        username = await bot.fetch_user(user_data.get_user_id())
+
+        if not username.bot:
+            leaderboard_string += f"{counter}. {username.name} | {user_data.get_xp()}\n"
+            counter += 1
+
+            if counter == 11:
+                break
 
     embed = discord.Embed(title='XP Leaderboard',
                           description=leaderboard_string, color=ACCENT_COLOR)
