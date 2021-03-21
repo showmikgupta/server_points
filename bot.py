@@ -74,7 +74,7 @@ async def on_member_join(member):
     bot_utils.create_user_entry(member.guild, member)
     await member.create_dm()
     await member.dm_channel.send(
-            "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
+        "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
     )
 
 
