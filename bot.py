@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 import bot_utils
 from VoiceActivity import VoiceActivity
 from UserData import UserData
+from Shop import Shop
+from Item import Item
+from ItemType import ItemType
 
 UPDATE_DOCS = False
 ERROR_COLOR = LOSE_COLOR = 0xFF0000
@@ -32,6 +35,7 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
+shop = Shop("Main Shop")
 
 
 @bot.event
@@ -293,9 +297,16 @@ async def rank(ctx):
     await ctx.send(embed=embed)
 
 
-@bot.command(name='store', help='Displays what you can buy in the store')
-async def store(ctx):
-    await ctx.send("Shop is WIP")
+@bot.command(name='stop', help='Displays what you can buy in the store')
+async def stop(ctx):
+    embed = discord.Embed(title=f"{shop.name}",
+                          description="Explore the shop for basic starting items",
+                          color=ACCENT_COLOR)
+
+    for item in shop.items:
+        embed.add_field(name=item.name.title(), value=item.price, inline=True)
+
+    await ctx.send(embed=embed)
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
@@ -349,11 +360,22 @@ def start_points_timer():
     t.start()
 
 
+def populate_shop():
+    ale = Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3)
+    health_potion = Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5)
+    long_sword = Item(2, 'long sword', 100, ItemType.WEAPON, "Sword that attacks slower but does more damage than a basic sword", 1)
+
+    shop.items.append(ale)
+    shop.items.append(health_potion)
+    shop.items.append(long_sword)
+
+
 def run():
     if UPDATE_DOCS:
         upgrade_database()
 
     start_points_timer()
+    populate_shop()
     bot.run(TOKEN)
 
 
