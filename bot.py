@@ -297,8 +297,8 @@ async def rank(ctx):
     await ctx.send(embed=embed)
 
 
-@bot.command(name='stop', help='Displays what you can buy in the store')
-async def stop(ctx):
+@bot.command(name='shop', help='Displays what you can buy in the store\nTo buy enter "$buy <name in lowercase>"')
+async def shop(ctx):
     embed = discord.Embed(title=f"{shop.name}",
                           description="Explore the shop for basic starting items",
                           color=ACCENT_COLOR)
