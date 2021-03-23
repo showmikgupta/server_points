@@ -393,8 +393,8 @@ def send_points(guild, sender_id, recipient_id, amount):
     members[str(recipient_id)] = encode_userdata(recipient_data)
 
     collection.update_one(
-            {'guild_id': guild.id},
-            {"$set":
-                {
-                    'members': members
-                }})
+        {'guild_id': guild.id},
+        {"$set":
+         {
+             'members': members
+         }})
