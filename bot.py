@@ -98,22 +98,22 @@ async def on_message(message):
 
     if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
         bot_utils.update_xp(message.guild, message.author,
-                            bot_utils.calculate_message_points(message))
+                            bot_utils.calculate_message_xp(message))
 
 
 @bot.event
 async def on_message_delete(message):
     bot_utils.update_xp(message.guild, message.author,
-                        (-1 * bot_utils.calculate_message_points(message)))
+                        (-1 * bot_utils.calculate_message_xp(message)))
 
 
 @bot.event
 async def on_message_edit(before, after):
     # calculate before points
-    before_points = bot_utils.calculate_message_points(before)
+    before_points = bot_utils.calculate_message_xp(before)
 
     # calculate after points
-    after_points = bot_utils.calculate_message_points(after)
+    after_points = bot_utils.calculate_message_xp(after)
 
     # update with the difference
     difference = after_points - before_points

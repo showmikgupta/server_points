@@ -48,7 +48,7 @@ def gamble_points_basic(bet_amount):
     return (bet_amount) if (winning_val == 1) else (bet_amount * -1)
 
 
-def calculate_message_points(message):
+def calculate_message_xp(message):
     """Calculated how many points a message is worth based on the content and length
 
     Args:
