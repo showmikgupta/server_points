@@ -35,7 +35,7 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 
 active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
-shop = Shop("Main Shop")
+main_shop = Shop("Main Shop")
 
 
 @bot.event
@@ -209,7 +209,8 @@ async def gift_points(ctx, recipient, amount):
     try:
         amount = int(amount)
     except ValueError:
-        embed = discord.Embed(title="Error", description='Invalid amount entered', color=ERROR_COLOR)
+        embed = discord.Embed(
+            title="Error", description='Invalid amount entered', color=ERROR_COLOR)
         await ctx.send(embed=embed)
         return
 
@@ -219,17 +220,21 @@ async def gift_points(ctx, recipient, amount):
     if senders_balance >= amount:
         # add amount to recipient and subtract from sender --> reupdate db
         if ctx.author.id == recipient_user_id:
-            embed = discord.Embed(title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
+            embed = discord.Embed(
+                title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
             await ctx.send(embed=embed)
             return
         else:
-            bot_utils.send_points(ctx.guild, ctx.author.id, recipient_user_id, amount)
+            bot_utils.send_points(ctx.guild, ctx.author.id,
+                                  recipient_user_id, amount)
 
         recipient_user = await bot.fetch_user(recipient_user_id)
-        embed = discord.Embed(title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
+        embed = discord.Embed(
+            title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
         await ctx.send(embed=embed)
     else:
-        embed = discord.Embed(title="Error", description='Insufficient Points', color=ERROR_COLOR)
+        embed = discord.Embed(
+            title="Error", description='Insufficient Points', color=ERROR_COLOR)
         await ctx.send(embed=embed)
 
 
@@ -299,11 +304,11 @@ async def rank(ctx):
 
 @bot.command(name='shop', help='Displays what you can buy in the store\nTo buy enter "$buy <name in lowercase>"')
 async def shop(ctx):
-    embed = discord.Embed(title=f"{shop.name}",
-                          description="Explore the shop for basic starting items",
+    embed = discord.Embed(title=f"{main_shop.name}",
+                          description="Explore the shop for basic starting items\nTo buy enter '$buy <name in lowercase>'",
                           color=ACCENT_COLOR)
 
-    for item in shop.items:
+    for item in main_shop.items:
         embed.add_field(name=item.name.title(), value=item.price, inline=True)
 
     await ctx.send(embed=embed)
@@ -362,12 +367,14 @@ def start_points_timer():
 
 def populate_shop():
     ale = Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3)
-    health_potion = Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5)
-    long_sword = Item(2, 'long sword', 100, ItemType.WEAPON, "Sword that attacks slower but does more damage than a basic sword", 1)
+    health_potion = Item(1, 'health potion', 20,
+                         ItemType.CONSUMABLE, "Restores HP over  time", 5)
+    long_sword = Item(2, 'long sword', 100, ItemType.WEAPON,
+                      "Sword that attacks slower but does more damage than a basic sword", 1)
 
-    shop.items.append(ale)
-    shop.items.append(health_potion)
-    shop.items.append(long_sword)
+    main_shop.items.append(ale)
+    main_shop.items.append(health_potion)
+    main_shop.items.append(long_sword)
 
 
 def run():
