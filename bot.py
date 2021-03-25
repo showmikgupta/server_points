@@ -1,6 +1,7 @@
 # bot.py
 import os
 import operator
+from uuid import uuid1
 from threading import Timer
 
 from dotenv import load_dotenv
@@ -28,7 +29,8 @@ CONNECTION_URL = os.getenv('MONGODB_CONNECTION_URL')
 # connecting to MongoDB Atlas
 cluster = MongoClient(CONNECTION_URL)
 db = cluster["UserData"]
-collection = db["UserData"]
+user_data_collection = db["UserData"]
+inventory_collection = db["Inventories"]
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='$', intents=intents)
@@ -36,6 +38,12 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
 main_shop = Shop("Main Shop")
+
+ALE = Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3)
+HEALTH_POTION = Item(1, 'health potion', 20,
+                     ItemType.CONSUMABLE, "Restores HP over  time", 5)
+LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
+                  "Sword that attacks slower but does more damage than a basic sword", 1)
 
 
 @bot.event
@@ -69,12 +77,12 @@ async def on_guild_join(guild):
 # when a server changed its name, afk timeout, etc...
 @bot.event
 async def on_guild_update(before, after):
-    collection.update_one({'guild_id': before.id},
-                          {"$set":
-                              {
-                                  'guild_id': after.id,
-                                  'guild_name': after.name
-                              }})
+    user_data_collection.update_one({'guild_id': before.id},
+                                    {"$set":
+                                     {
+                                         'guild_id': after.id,
+                                         'guild_name': after.name
+                                     }})
 
 
 @bot.event
@@ -209,8 +217,7 @@ async def gift_points(ctx, recipient, amount):
     try:
         amount = int(amount)
     except ValueError:
-        embed = discord.Embed(
-            title="Error", description='Invalid amount entered', color=ERROR_COLOR)
+        embed = discord.Embed(title="Error", description='Invalid amount entered', color=ERROR_COLOR)
         await ctx.send(embed=embed)
         return
 
@@ -220,21 +227,21 @@ async def gift_points(ctx, recipient, amount):
     if senders_balance >= amount:
         # add amount to recipient and subtract from sender --> reupdate db
         if ctx.author.id == recipient_user_id:
-            embed = discord.Embed(
-                title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
+            embed = discord.Embed(title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
             await ctx.send(embed=embed)
             return
         else:
-            bot_utils.send_points(ctx.guild, ctx.author.id,
-                                  recipient_user_id, amount)
+            money_sent = bot_utils.send_points(ctx.guild, ctx.author.id, recipient_user_id, amount)
 
-        recipient_user = await bot.fetch_user(recipient_user_id)
-        embed = discord.Embed(
-            title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
-        await ctx.send(embed=embed)
+            if money_sent:
+                recipient_user = await bot.fetch_user(recipient_user_id)
+                embed = discord.Embed(title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
+                await ctx.send(embed=embed)
+            else:
+                embed = discord.Embed(title="Error", description='You already hit the gifting limit for today or your request would push you over the limit', color=ERROR_COLOR)
+                await ctx.send(embed=embed)
     else:
-        embed = discord.Embed(
-            title="Error", description='Insufficient Points', color=ERROR_COLOR)
+        embed = discord.Embed(title="Error", description='Insufficient Points', color=ERROR_COLOR)
         await ctx.send(embed=embed)
 
 
@@ -314,6 +321,81 @@ async def shop(ctx):
     await ctx.send(embed=embed)
 
 
+@bot.command(name='buy', help='Buy an item from the shop.\n$buy "name of shop item in quotes" quantity"\nquantity defaults to 1')
+async def buy(ctx, name, quantity=1):
+    # see if name exists in the Shop
+    item = None
+
+    for shop_item in main_shop.items:
+        if name == shop_item.name:
+            item = shop_item
+            break
+
+    if item is None:
+        embed = discord.Embed(
+            title="Error", description='The shop does not sell this item', color=ERROR_COLOR)
+        await ctx.send(embed=embed)
+        return
+
+    # see if quantity <= max_quantity
+    try:
+        quantity = int(quantity)
+    except ValueError:
+        # Error: enter a number
+        embed = discord.Embed(
+            title="Error", description='Invalid quantity requested', color=ERROR_COLOR)
+        await ctx.send(embed=embed)
+        return
+
+    if quantity <= item.max_quantity:
+        # Need to add item to db
+        doc = bot_utils.get_guild_doc(ctx.guild)
+        members = doc['members']
+
+        inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
+        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+        inventories = inventory_doc['inventories']
+        inventory = inventories[str(inventory_id)]
+
+        # check if items will fit
+        if inventory['size'] + quantity <= inventory['capacity']:
+            # add quantity of name to users inventory
+            try:
+                members[str(ctx.author.id)]['points'] -= (quantity * item.price)
+                inventory['inventory'][str(item.id)] += quantity
+            except KeyError:
+                inventory['inventory'][str(item.id)] = quantity
+
+            inventories[str(inventory_id)] = inventory
+
+            inventory_collection.update_one(
+                {'guild_id': ctx.guild.id},
+                {"$set":
+                 {
+                     'inventories': inventories
+                 }})
+
+            user_data_collection.update_one(
+                {'guild_id': ctx.guild.id},
+                {"$set":
+                 {
+                     'members': members
+                 }})
+        else:
+            # Error: dont have enough space
+            embed = discord.Embed(title="Error", description='Not enough inventory space to fit the desired quantity', color=ERROR_COLOR)
+            await ctx.send(embed=embed)
+            return
+    else:
+        # Error: you cant buy that many of that item
+        embed = discord.Embed(title="Error", description=f'You can only buy {item.max_quantity} of this item', color=ERROR_COLOR)
+        await ctx.send(embed=embed)
+        return
+
+    embed = discord.Embed(title="You bought an item!", description=f'Added {quantity} of {name.title()} to your inventory', color=ACCENT_COLOR)
+    await ctx.send(embed=embed)
+
+
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
 async def leaderboard(ctx):
     # get all user data
@@ -365,16 +447,39 @@ def start_points_timer():
     t.start()
 
 
-def populate_shop():
-    ale = Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3)
-    health_potion = Item(1, 'health potion', 20,
-                         ItemType.CONSUMABLE, "Restores HP over  time", 5)
-    long_sword = Item(2, 'long sword', 100, ItemType.WEAPON,
-                      "Sword that attacks slower but does more damage than a basic sword", 1)
+def start_gift_reset_timer():
+    current_time = datetime.now()
+    tomorrow = current_time + timedelta(days=1)
+    reset_time = tomorrow.replace(hour=0, minute=0, second=0)
+    delta = reset_time - current_time
+    secs = delta.total_seconds()
+    t = Timer(secs, reset_total_gift)
+    t.start()
 
-    main_shop.items.append(ale)
-    main_shop.items.append(health_potion)
-    main_shop.items.append(long_sword)
+
+def reset_total_gift():
+    docs = user_data_collection.find({})
+
+    for doc in docs:
+        members = doc['members']
+
+        for user_id, user_data in members.items():
+            user_data['total_gift'] = 0
+
+        user_data_collection.update_one(
+            {'guild_id': doc['guild_id']},
+            {"$set":
+                {
+                    'members': members
+                }})
+
+    start_gift_reset_timer()
+
+
+def populate_shop():
+    main_shop.items.append(ALE)
+    main_shop.items.append(HEALTH_POTION)
+    main_shop.items.append(LONG_SWORD)
 
 
 def run():
@@ -382,28 +487,44 @@ def run():
         upgrade_database()
 
     start_points_timer()
+    start_gift_reset_timer()
     populate_shop()
     bot.run(TOKEN)
 
 
 def upgrade_database():
-    docs = collection.find({})
+    docs = user_data_collection.find({})
 
     for doc in docs:
         updated_members = {}
+        inventories = {}
         members = doc['members']
 
         for user_id in members.keys():
-            points = members[user_id]['points']
+            points = members[user_id]['points'] + 10000
             level = members[user_id]['level']
             xp = members[user_id]['xp']
+            inventory_id = str(uuid1())
 
             updated_members[user_id] = bot_utils.encode_userdata(
-                UserData(user_id, points, level, xp))
+                UserData(user_id, points, level, xp, inventory_id))
+            inventories[inventory_id] = {
+                'id': inventory_id,
+                'capacity': 20,
+                'size': 0,
+                'inventory': {}
+            }
 
-        collection.update_one(
+        user_data_collection.update_one(
             {'guild_id': doc['guild_id']},
             {"$set":
                 {
                     'members': updated_members
+                }})
+
+        inventory_collection.update_one(
+            {'guild_id': doc['guild_id']},
+            {"$set":
+                {
+                    'inventories': inventories
                 }})
