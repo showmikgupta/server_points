@@ -1,9 +1,11 @@
 class UserData:
-    def __init__(self, user_id, points, level, xp):
+    def __init__(self, user_id, points, level, xp, inventory_id):
         self.user_id = user_id
         self.points = points
         self.level = level
         self.xp = xp
+        self.total_gift = 0
+        self.inventory_id = inventory_id
 
     def get_user_id(self):
         return self.user_id
@@ -90,3 +92,13 @@ class UserData:
 
     def update_xp(self, xp):
         self.xp += xp
+
+    def get_total_gift(self):
+        return self.total_gift
+
+    def set_total_gift(self, total_gift):
+        self.total_gift = total_gift
+
+    def send_gift(self, gift):
+        self.total_gift += gift
+        self.points -= gift

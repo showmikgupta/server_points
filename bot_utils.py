@@ -1,6 +1,7 @@
 import random
 import os
 import math
+from uuid import uuid1
 
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -12,27 +13,51 @@ CONNECTION_URL = os.getenv('MONGODB_CONNECTION_URL')
 
 cluster = MongoClient(CONNECTION_URL)
 db = cluster["UserData"]
-collection = db["UserData"]
+user_data_collection = db["UserData"]
+inventory_collection = db["Inventories"]
 
 
 def encode_userdata(userdata):
+    """Encodes UserData objects to dictionaries so MongoDB can store UserData
+
+    Args:
+        userdata (UserData): Objects representing someone's user data
+
+    Returns:
+        dict: dictionary representation of someone's user data
+    """
     return {
         '_type': 'UserData',
         'user_id': userdata.get_user_id(),
         'points': userdata.get_points(),
         'level': userdata.get_level(),
-        'xp': userdata.get_xp()
+        'xp': userdata.get_xp(),
+        'total_gift': userdata.get_total_gift(),
+        'inventory_id': userdata.inventory_id
     }
 
 
 def decode_userdata(document):
+    """Decoded a dictionary holding someone's user data
+
+    Args:
+        document (dict): Dictionary representing someone's user database
+
+    Returns:
+        UserData: UserData object representing someone's user data
+    """
     assert document['_type'] == 'UserData'
     user_id = document['user_id']
     points = document['points']
     level = document['level']
     xp = document['xp']
+    total_gift = document['total_gift']
+    inventory_id = document['inventory_id']
 
-    return UserData(user_id, points, level, xp)
+    data = UserData(user_id, points, level, xp, inventory_id)
+    data.set_total_gift(total_gift)
+
+    return data
 
 
 def gamble_points_basic(bet_amount):
@@ -136,11 +161,24 @@ def get_guild_doc(guild):
         dict: Dictionary representing the document for the server
     """
     query = {'guild_id': guild.id}
-    return collection.find_one(query)
+    return user_data_collection.find_one(query)
+
+
+def get_guild_inventory(guild):
+    """Gets the inventory document related to the given guild
+
+    Args:
+        guild (discord.Guild): Server to get document for
+
+    Returns:
+        dict: Dictionary representing the document for the server
+    """
+    query = {'guild_id': guild.id}
+    return inventory_collection.find_one(query)
 
 
 def create_guild_entry(guild):
-    """Creates a document (entry) for the given server
+    """Creates entries in two collections: UserData and Inventories for the given guild
 
     Args:
         guild (discord.Guild): Guild to create an entry for
@@ -149,9 +187,18 @@ def create_guild_entry(guild):
         dict:  Most up to date member information
     """
     members = {}
+    inventories = {}
 
     for user_id in get_user_ids(guild):
-        members[str(user_id)] = encode_userdata(UserData(user_id, 0, 1, 0))
+        inventory_id = uuid1()
+        members[str(user_id)] = encode_userdata(
+            UserData(user_id, 0, 1, 0, inventory_id))
+        inventories[str(inventory_id)] = {
+            'id': inventory_id,
+            'capacity': 20,
+            'size': 0,
+            'inventory': {}
+        }
 
     post = {
         'guild_id': guild.id,
@@ -159,30 +206,57 @@ def create_guild_entry(guild):
         'members': members
     }
 
-    collection.insert_one(post)
+    user_data_collection.insert_one(post)
+
+    post = {
+        'guild_id': guild.id,
+        'guild_name': guild.name,
+        'inventories': inventories
+    }
+
+    inventory_collection.insert_one(post)
+
     return members
 
 
 def create_user_entry(guild, user):
-    """Creates an entry for the given user in the given guild
+    """Creates two entries in different collections for the user's data and their inventory
 
     Args:
         guild (discord.Guild): Guild to add user data
         user (discord.User): User to create data for
     """
     doc = get_guild_doc(guild)
+    inventory_id = uuid1()
 
     if doc is None:
         create_guild_entry(guild)
     else:
         members = doc['members']
-        members[str(user.id)] = encode_userdata(UserData(user.id, 0, 1, 0))
+        members[str(user.id)] = encode_userdata(
+            UserData(user.id, 0, 1, 0, inventory_id))
 
-        collection.update_one(
+        user_data_collection.update_one(
             {'guild_id': guild.id},
             {"$set":
                 {
                     'members': members
+                }})
+
+        inventory_doc = get_guild_inventory(guild)
+        inventories = inventory_doc['inventories']
+        inventories[str(inventory_id)] = {
+            'id': inventory_id,
+            'capacity': 20,
+            'size': 0,
+            'inventory': {}
+        }
+
+        inventory_collection.update_one(
+            {'guild_id': guild.id},
+            {"$set":
+                {
+                    'inventories': inventories
                 }})
 
 
@@ -199,7 +273,7 @@ def remove_user_entry(guild, user):
         members = doc['members']
         del members[str(user.id)]
 
-        collection.update_one(
+        user_data_collection.update_one(
             {'guild_id': guild.id},
             {"$set":
                 {
@@ -237,7 +311,7 @@ def update_points(guild, user, points, reset=False):
             user_data.set_points(points)
             members[str(user.id)] = encode_userdata(user_data)
 
-        collection.update_one(
+        user_data_collection.update_one(
             {'guild_id': guild.id},
             {"$set":
                 {
@@ -286,7 +360,7 @@ def update_xp(guild, user, xp, reset=False):
             user_data.set_xp(xp)
             members[str(user.id)] = encode_userdata(user_data)
 
-        collection.update_one(
+        user_data_collection.update_one(
             {'guild_id': guild.id},
             {"$set":
                 {
@@ -385,16 +459,23 @@ def send_points(guild, sender_id, recipient_id, amount):
     members = doc['members']
     sender_data = decode_userdata(members[str(sender_id)])
     recipient_data = decode_userdata(members[str(recipient_id)])
+    limit = 1000  # maximum points allowed to be gifted per day
+    total_gift = sender_data.get_total_gift()
 
-    sender_data.update_points(-1 * amount)
-    recipient_data.update_points(amount)
+    if total_gift > limit or amount + total_gift > limit:
+        return False
+    else:
+        sender_data.send_gift(amount)  # updates senders points and total_gift
+        recipient_data.update_points(amount)
 
-    members[str(sender_id)] = encode_userdata(sender_data)
-    members[str(recipient_id)] = encode_userdata(recipient_data)
+        members[str(sender_id)] = encode_userdata(sender_data)
+        members[str(recipient_id)] = encode_userdata(recipient_data)
 
-    collection.update_one(
-        {'guild_id': guild.id},
-        {"$set":
-         {
-             'members': members
-         }})
+        user_data_collection.update_one(
+            {'guild_id': guild.id},
+            {"$set":
+             {
+                 'members': members
+             }})
+
+        return True
