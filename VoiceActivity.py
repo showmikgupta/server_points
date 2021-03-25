@@ -1,12 +1,13 @@
 class VoiceActivity:
     """Class for representing someones voice activty i.e. being muted"""
+
     def __init__(self, guild, user, muted=False, deafened=False, afk=False):
         self.guild = guild
         self.user = user
         self.muted = muted
         self.deafened = deafened
         self.afk = afk
-        self.points_accumulated = 0
+        self.xp_accumulated = 0
 
     def mute(self):
         self.muted = True
@@ -34,7 +35,7 @@ class VoiceActivity:
     def add_points(self):
         """Adds points to the total if you are actively participating in a call"""
         if not (self.muted or self.deafened or self.afk):
-            self.points_accumulated += 15
+            self.xp_accumulated += 20
 
     def get_points(self):
-        return self.points_accumulated
+        return self.xp_accumulated
