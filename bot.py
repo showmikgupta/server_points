@@ -4,6 +4,7 @@ import os
 import operator
 from uuid import uuid1
 from threading import Timer
+import asyncio
 
 from dotenv import load_dotenv
 from discord.ext import commands
@@ -45,6 +46,7 @@ HEALTH_POTION = Item(1, 'health potion', 20,
                      ItemType.CONSUMABLE, "Restores HP over  time", 5)
 LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
                   "Sword that attacks slower but does more damage than a basic sword", 1)
+
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -217,7 +219,8 @@ async def gift_points(ctx, recipient, amount):
     try:
         amount = int(amount)
     except ValueError:
-        embed = discord.Embed(title="Error", description='Invalid amount entered', color=ERROR_COLOR)
+        embed = discord.Embed(
+            title="Error", description='Invalid amount entered', color=ERROR_COLOR)
         await ctx.send(embed=embed)
         return
 
@@ -227,21 +230,26 @@ async def gift_points(ctx, recipient, amount):
     if senders_balance >= amount:
         # add amount to recipient and subtract from sender --> reupdate db
         if ctx.author.id == recipient_user_id:
-            embed = discord.Embed(title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
+            embed = discord.Embed(
+                title='Error', description="You can not gift yourself points", color=ERROR_COLOR)
             await ctx.send(embed=embed)
             return
         else:
-            money_sent = bot_utils.send_points(ctx.guild, ctx.author.id, recipient_user_id, amount)
+            money_sent = bot_utils.send_points(
+                ctx.guild, ctx.author.id, recipient_user_id, amount)
 
             if money_sent:
                 recipient_user = await bot.fetch_user(recipient_user_id)
-                embed = discord.Embed(title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
+                embed = discord.Embed(
+                    title='Points Gifted', description=f"{ctx.author.name} gifted {recipient_user.name} {amount} points", color=WIN_COLOR)
                 await ctx.send(embed=embed)
             else:
-                embed = discord.Embed(title="Error", description='You already hit the gifting limit for today or your request would push you over the limit', color=ERROR_COLOR)
+                embed = discord.Embed(
+                    title="Error", description='You already hit the gifting limit for today or your request would push you over the limit', color=ERROR_COLOR)
                 await ctx.send(embed=embed)
     else:
-        embed = discord.Embed(title="Error", description='Insufficient Points', color=ERROR_COLOR)
+        embed = discord.Embed(
+            title="Error", description='Insufficient Points', color=ERROR_COLOR)
         await ctx.send(embed=embed)
 
 
@@ -295,10 +303,9 @@ async def gamble(ctx, amount):
             await ctx.send(embed=embed)
 
 
-
 @bot.command(name='inventory', help='Displays the current inventory of the user')
-async def checkInventory(ctx):
-    doc = bot_utils.get_guild_doc(ctx.guild)                      
+async def check_inventory(ctx):
+    doc = bot_utils.get_guild_doc(ctx.guild)
     inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
     inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
     inventories = inventory_doc['inventories']
@@ -309,13 +316,13 @@ async def checkInventory(ctx):
                           description="You have the following items:",
                           color=ACCENT_COLOR)
 
-    #for loop busted wtf     
+    # for loop busted wtf
     for item_id, item_quantity in inventory.items():
         item_name = bot_utils.item_lookup(item_id).name
-        embed.add_field(name=item_name.title(),value=item_quantity,inline=True)
+        embed.add_field(name=item_name.title(),
+                        value=item_quantity, inline=True)
 
     await ctx.send(embed=embed)
-
 
 
 @bot.command(name='rank', help='Displays user current rank and exp')
@@ -348,6 +355,7 @@ async def shop(ctx):
 async def buy(ctx, name, quantity=1):
     # see if name exists in the Shop
     item = None
+    name = name.lower()
 
     for shop_item in main_shop.items:
         if name == shop_item.name:
@@ -370,122 +378,51 @@ async def buy(ctx, name, quantity=1):
         await ctx.send(embed=embed)
         return
 
-    if quantity <= item.max_quantity:
-        # Need to add item to db
-        doc = bot_utils.get_guild_doc(ctx.guild)
-        members = doc['members']
+    success = await add_to_inventory(ctx, item.id, quantity, output=True)
 
-        inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
-        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
-        inventories = inventory_doc['inventories']
-        inventory = inventories[str(inventory_id)]
-
-        # check if items will fit
-        if inventory['size'] + quantity <= inventory['capacity']:
-            # add quantity of name to users inventory
-            try:
-                members[str(ctx.author.id)]['points'] -= (quantity * item.price)
-                inventory['inventory'][str(item.id)] += quantity
-            except KeyError:
-                inventory['inventory'][str(item.id)] = quantity
-
-            inventories[str(inventory_id)] = inventory
-
-            inventory_collection.update_one(
-                {'guild_id': ctx.guild.id},
-                {"$set":
-                 {
-                     'inventories': inventories
-                 }})
-
-            user_data_collection.update_one(
-                {'guild_id': ctx.guild.id},
-                {"$set":
-                 {
-                     'members': members
-                 }})
-        else:
-            # Error: dont have enough space
-            embed = discord.Embed(title="Error", description='Not enough inventory space to fit the desired quantity', color=ERROR_COLOR)
-            await ctx.send(embed=embed)
-            return
-    else:
-        # Error: you cant buy that many of that item
-        embed = discord.Embed(title="Error", description=f'You can only buy {item.max_quantity} of this item', color=ERROR_COLOR)
-        await ctx.send(embed=embed)
-        return
-
-    embed = discord.Embed(title="You bought an item!", description=f'Added {quantity} of {name.title()} to your inventory', color=ACCENT_COLOR)
-    await ctx.send(embed=embed)
+    if success:
+        bot_utils.update_points(ctx.guild, ctx.author, -1 * quantity * item.price)
 
 
 @bot.command(name='explore', help='explore')
 async def explore(ctx, location):
-    # item id 0-2 --> item id 3
-    # 1. find out how to store items and probabilities - done
-    # 2. make the bot output text when going to the beach and when coming back
-    # 3. add items that were found to users inventory - done
     if location.lower() == 'beach':
-        embed = discord.Embed(title="Exploring", description='You have now entered the beach', color=ACCENT_COLOR)
+        embed = discord.Embed(
+            title="Exploring", description='You have now entered the beach', color=ACCENT_COLOR)
         await ctx.send(embed=embed)
+        await ctx.send(file=discord.File('images/entering_beach.gif'))
 
         item_probs = {
-            "3" : 80,
-            "4" : 10,
-            "5" : 50,
-            "6" : 70
+            "3": 50,
+            "4": 10,
+            "5": 30,
+            "6": 25
         }
 
-        found_items = []
-        
-        for key in item_probs.keys():
-            successCondition = random.randint(0, 100)
-            
-            if 1 <= successCondition <= item_probs[key]:
-                #add item to inventory
-                found_items.append(key)
-                doc = bot_utils.get_guild_doc(ctx.guild)
+        item_found = None
 
-                inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
-                inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
-                inventories = inventory_doc['inventories']
-                inventory = inventories[str(inventory_id)]
+        for i in range(3):
+            item_to_check = str(random.randint(3, 6))
+            success_condition = random.randint(0, 100)
 
-                # check if items will fit
-                if inventory['size'] < inventory['capacity']:
-                    # add quantity of name to users inventory
-                    try:
-                        inventory['inventory'][key] += 1
-                    except KeyError:
-                        inventory['inventory'][key] = 1
+            if 1 <= success_condition <= item_probs[item_to_check]:
+                item_found = bot_utils.item_lookup(item_to_check)
+                await add_to_inventory(ctx, item_to_check, 1, output=False)
 
-                    inventories[str(inventory_id)] = inventory
+        description = ""
 
-                    inventory_collection.update_one(
-                        {'guild_id': ctx.guild.id},
-                        {"$set":
-                        {
-                            'inventories': inventories
-                        }})
-                else:
-                    # Error: dont have enough space
-                    embed = discord.Embed(title="Error", description='Not enough inventory space', color=ERROR_COLOR)
-                    await ctx.send(embed=embed)
-                    return
-
-        if len(found_items) > 0:
-            description += f'You found {len(found_items)} item(s):\n'
-            
-            for found_item in found_items:
-                description += f'    -{bot_utils.item_lookup(found_item).name}\n'
+        if item_found is not None:
+            description += f'You found a(n) {item_found.name.title()}\n'
         else:
-            description += 'You found no items.\n'
-        
+            description += 'You found nothing.\n'
+
         description += 'You have now exited the beach'
-        
-        embed = discord.Embed(title="Returning to town", description=description, color=ACCENT_COLOR)
+
+        await asyncio.sleep(7)
+        embed = discord.Embed(title="Returning to town",
+                              description=description, color=ACCENT_COLOR)
         await ctx.send(embed=embed)
-         
+        await ctx.send(file=discord.File('images/returning_to_town.gif'))
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
@@ -620,3 +557,67 @@ def upgrade_database():
                 {
                     'inventories': inventories
                 }})
+
+
+async def add_to_inventory(ctx, item_id, quantity, output=True):
+    if type(item_id) == int:
+        item_id = str(item_id)
+
+    item = bot_utils.item_lookup(item_id)
+
+    if quantity <= item.max_quantity:
+        inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)  # get users inventory id from userdata db
+        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)  # get all inventory data from the users guild
+        inventory_data = inventory_doc['inventories'][inventory_id]  # get the users inventory information
+
+        if inventory_data['size'] + quantity <= inventory_data['capacity']:
+            try:
+                current_quantity = inventory_data['inventory'][item_id]
+            except KeyError:
+                current_quantity = 0
+
+            if current_quantity + quantity <= item.max_quantity:
+                try:
+                    inventory_data['inventory'][item_id] += quantity
+                except KeyError:
+                    inventory_data['inventory'][item_id] = quantity
+
+                inventory_data['size'] += quantity
+
+                inventory_collection.update_one(
+                    {'guild_id': ctx.guild.id},
+                    {"$set":
+                     {
+                         'inventories': inventory_doc['inventories']
+                     }})
+
+                if output:
+                    embed = discord.Embed(title='Inventory Update',
+                                      description=f"Added {quantity} of {item.name.title()} to your inventory", color=ACCENT_COLOR)
+                    await ctx.send(embed=embed)
+
+                return True
+            else:
+                # you can only have max in your inventory. you currently have x
+                if output:
+                    embed = discord.Embed(title='Inventory Update Error',
+                                      description=f"The most amount of {item.name.title()} you can hold is {item.max_quantity}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
+                    await ctx.send(embed=embed)
+
+                return False
+        else:
+            # not enough space in inventory
+            if output:
+                embed = discord.Embed(title='Inventory Update Error',
+                                  description="You don't have enough space in your inventory", color=ERROR_COLOR)
+                await ctx.send(embed=embed)
+
+            return False
+    else:
+        # you cant buy that many of this item
+        if output:
+            embed = discord.Embed(title='Inventory Update Error',
+                              description=f"The most amount of {item.name.title()} you can buy is {item.max_quantity}", color=ERROR_COLOR)
+            await ctx.send(embed=embed)
+
+        return False
