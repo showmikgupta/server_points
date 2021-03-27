@@ -20,8 +20,7 @@ inventory_collection = db["Inventories"]
 
 items = {
     "0": Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3),
-    "1": Item(1, 'health potion', 20,
-                     ItemType.CONSUMABLE, "Restores HP over  time", 5),
+    "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5),
     "2": Item(2, 'long sword', 100, ItemType.WEAPON,
                   "Sword that attacks slower but does more damage than a basic sword", 1),
     "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20),
@@ -496,3 +495,8 @@ def send_points(guild, sender_id, recipient_id, amount):
              }})
 
         return True
+
+
+def get_user_inventory_id(guild, user):
+    doc = get_guild_doc(guild)
+    return doc['members'][str(user.id)]['inventory_id']
