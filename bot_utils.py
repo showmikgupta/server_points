@@ -7,6 +7,8 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 
 from UserData import UserData
+from Item import Item
+from ItemType import ItemType
 
 load_dotenv()
 CONNECTION_URL = os.getenv('MONGODB_CONNECTION_URL')
@@ -15,6 +17,21 @@ cluster = MongoClient(CONNECTION_URL)
 db = cluster["UserData"]
 user_data_collection = db["UserData"]
 inventory_collection = db["Inventories"]
+
+items = {
+    "0": Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3),
+    "1": Item(1, 'health potion', 20,
+                     ItemType.CONSUMABLE, "Restores HP over  time", 5),
+    "2": Item(2, 'long sword', 100, ItemType.WEAPON,
+                  "Sword that attacks slower but does more damage than a basic sword", 1),
+    "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20),
+    "4": Item(4, 'hat', 5, ItemType.ARMOR, "Leather hat that offers minimal protection", 1),
+    "5": Item(5, 'message in a bottle', -1, ItemType.JUNK, "A secret message for sailors of the past", 3),
+    "6": Item(7, 'coconuts', 10, ItemType.CONSUMABLE, "Sweet and refreshing snack from the beach", 10),
+}
+
+def item_lookup(item_id):
+    return items[item_id]
 
 
 def encode_userdata(userdata):
@@ -87,13 +104,13 @@ def calculate_message_xp(message):
     if message.mention_everyone:
         points += 5
 
-    for attachment in message.attachments:
+    for message.attachment in message.attachments:
         points += 5
 
-    for mention in message.mentions:
+    for message.mention in message.mentions:
         points += 5
 
-    for mention in message.role_mentions:
+    for message.mention in message.role_mentions:
         points += 5
 
     if 0 > len(message.content) <= 5:
