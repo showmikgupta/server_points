@@ -1,4 +1,5 @@
 # bot.py
+import random
 import os
 import operator
 from uuid import uuid1
@@ -44,7 +45,6 @@ HEALTH_POTION = Item(1, 'health potion', 20,
                      ItemType.CONSUMABLE, "Restores HP over  time", 5)
 LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
                   "Sword that attacks slower but does more damage than a basic sword", 1)
-
 
 @bot.event
 async def on_error(event, *args, **kwargs):
@@ -144,14 +144,14 @@ async def on_reaction_remove(reaction, user):
 
 @bot.event
 async def on_member_ban(guild, user):
-    bot_utils.update_xp(guild, user, reset=True)
-    bot_utils.update_points(guild, user, reset=True)
+    bot_utils.update_xp(guild, user, 0, reset=True)
+    bot_utils.update_points(guild, user, 0, reset=True)
 
 
 @bot.event
 async def on_member_unban(guild, user):
-    bot_utils.update_xp(guild, user, reset=True)
-    bot_utils.update_points(guild, user, reset=True)
+    bot_utils.update_xp(guild, user, 0, reset=True)
+    bot_utils.update_points(guild, user, 0, reset=True)
 
 
 @bot.event
@@ -295,6 +295,29 @@ async def gamble(ctx, amount):
             await ctx.send(embed=embed)
 
 
+
+@bot.command(name='inventory', help='Displays the current inventory of the user')
+async def checkInventory(ctx):
+    doc = bot_utils.get_guild_doc(ctx.guild)                      
+    inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
+    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventories = inventory_doc['inventories']
+    inventory_info = inventories[str(inventory_id)]
+    inventory = inventory_info['inventory']
+
+    embed = discord.Embed(title=f"{ctx.author.name}'s Inventory",
+                          description="You have the following items:",
+                          color=ACCENT_COLOR)
+
+    #for loop busted wtf     
+    for item_id, item_quantity in inventory.items():
+        item_name = bot_utils.item_lookup(item_id).name
+        embed.add_field(name=item_name.title(),value=item_quantity,inline=True)
+
+    await ctx.send(embed=embed)
+
+
+
 @bot.command(name='rank', help='Displays user current rank and exp')
 async def rank(ctx):
     xp = bot_utils.get_xp(ctx.guild, ctx.author)
@@ -394,6 +417,75 @@ async def buy(ctx, name, quantity=1):
 
     embed = discord.Embed(title="You bought an item!", description=f'Added {quantity} of {name.title()} to your inventory', color=ACCENT_COLOR)
     await ctx.send(embed=embed)
+
+
+@bot.command(name='explore', help='explore')
+async def explore(ctx, location):
+    # item id 0-2 --> item id 3
+    # 1. find out how to store items and probabilities - done
+    # 2. make the bot output text when going to the beach and when coming back
+    # 3. add items that were found to users inventory - done
+    if location.lower() == 'beach':
+        embed = discord.Embed(title="Exploring", description='You have now entered the beach', color=ACCENT_COLOR)
+        await ctx.send(embed=embed)
+
+        item_probs = {
+            "3" : 80,
+            "4" : 10,
+            "5" : 50,
+            "6" : 70
+        }
+
+        found_items = []
+        
+        for key in item_probs.keys():
+            successCondition = random.randint(0, 100)
+            
+            if 1 <= successCondition <= item_probs[key]:
+                #add item to inventory
+                found_items.append(key)
+                doc = bot_utils.get_guild_doc(ctx.guild)
+
+                inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
+                inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+                inventories = inventory_doc['inventories']
+                inventory = inventories[str(inventory_id)]
+
+                # check if items will fit
+                if inventory['size'] < inventory['capacity']:
+                    # add quantity of name to users inventory
+                    try:
+                        inventory['inventory'][key] += 1
+                    except KeyError:
+                        inventory['inventory'][key] = 1
+
+                    inventories[str(inventory_id)] = inventory
+
+                    inventory_collection.update_one(
+                        {'guild_id': ctx.guild.id},
+                        {"$set":
+                        {
+                            'inventories': inventories
+                        }})
+                else:
+                    # Error: dont have enough space
+                    embed = discord.Embed(title="Error", description='Not enough inventory space', color=ERROR_COLOR)
+                    await ctx.send(embed=embed)
+                    return
+
+        if len(found_items) > 0:
+            description += f'You found {len(found_items)} item(s):\n'
+            
+            for found_item in found_items:
+                description += f'    -{bot_utils.item_lookup(found_item).name}\n'
+        else:
+            description += 'You found no items.\n'
+        
+        description += 'You have now exited the beach'
+        
+        embed = discord.Embed(title="Returning to town", description=description, color=ACCENT_COLOR)
+        await ctx.send(embed=embed)
+         
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
