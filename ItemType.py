@@ -5,3 +5,4 @@ class ItemType(Enum):
     WEAPON = 2
     ARMOR = 3
     JUNK = 4
+    ALCOHOL = 5
