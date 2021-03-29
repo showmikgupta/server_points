@@ -41,7 +41,7 @@ active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
 main_shop = Shop("Main Shop")
 
-ALE = Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3)
+ALE = Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3)
 HEALTH_POTION = Item(1, 'health potion', 20,
                      ItemType.CONSUMABLE, "Restores HP over  time", 5)
 LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
@@ -304,7 +304,7 @@ async def gamble(ctx, amount):
 
 
 @bot.command(name='inventory', help='Displays the current inventory of the user')
-async def check_inventory(ctx):
+async def display_inventory(ctx):
     doc = bot_utils.get_guild_doc(ctx.guild)
     inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
     inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
@@ -381,7 +381,8 @@ async def buy(ctx, name, quantity=1):
     success = await add_to_inventory(ctx, item.id, quantity, output=True)
 
     if success:
-        bot_utils.update_points(ctx.guild, ctx.author, -1 * quantity * item.price)
+        bot_utils.update_points(
+            ctx.guild, ctx.author, -1 * quantity * item.price)
 
 
 @bot.command(name='explore', help='explore')
@@ -423,6 +424,23 @@ async def explore(ctx, location):
                               description=description, color=ACCENT_COLOR)
         await ctx.send(embed=embed)
         await ctx.send(file=discord.File('images/returning_to_town.gif'))
+
+
+@bot.command(name='cheers', help='Gives someone an alcoholic beverage if you one if your inventory')
+async def cheers(ctx, person):
+    recipient_id = ctx.message.mentions[0].id
+    alcohol_quantity = check_inventory(ctx, item_type=ItemType.ALCOHOL)
+
+    if alcohol_quantity == 0:
+        embed = discord.Embed(title="Low on booze",
+                              description="You don't have any alcohol to use to cheers someone", color=ERROR_COLOR)
+        await ctx.send(embed=embed)
+    else:
+        remove_from_inventory(ctx, ItemType.ALCOHOL, 1)
+        recipient_id = f'<@{recipient_id}>'
+
+        await ctx.send(f'Cheers {recipient_id}! {ctx.author.name} sent you some booze.')
+        await ctx.send(file=discord.File('images/cheers.gif'))
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
@@ -566,9 +584,12 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
     item = bot_utils.item_lookup(item_id)
 
     if quantity <= item.max_quantity:
-        inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)  # get users inventory id from userdata db
-        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)  # get all inventory data from the users guild
-        inventory_data = inventory_doc['inventories'][inventory_id]  # get the users inventory information
+        inventory_id = bot_utils.get_user_inventory_id(
+            ctx.guild, ctx.author)  # get users inventory id from userdata db
+        # get all inventory data from the users guild
+        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+        # get the users inventory information
+        inventory_data = inventory_doc['inventories'][inventory_id]
 
         if inventory_data['size'] + quantity <= inventory_data['capacity']:
             try:
@@ -593,7 +614,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
 
                 if output:
                     embed = discord.Embed(title='Inventory Update',
-                                      description=f"Added {quantity} of {item.name.title()} to your inventory", color=ACCENT_COLOR)
+                                          description=f"Added {quantity} of {item.name.title()} to your inventory", color=ACCENT_COLOR)
                     await ctx.send(embed=embed)
 
                 return True
@@ -601,7 +622,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
                 # you can only have max in your inventory. you currently have x
                 if output:
                     embed = discord.Embed(title='Inventory Update Error',
-                                      description=f"The most amount of {item.name.title()} you can hold is {item.max_quantity}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
+                                          description=f"The most amount of {item.name.title()} you can hold is {item.max_quantity}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
                     await ctx.send(embed=embed)
 
                 return False
@@ -609,7 +630,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
             # not enough space in inventory
             if output:
                 embed = discord.Embed(title='Inventory Update Error',
-                                  description="You don't have enough space in your inventory", color=ERROR_COLOR)
+                                      description="You don't have enough space in your inventory", color=ERROR_COLOR)
                 await ctx.send(embed=embed)
 
             return False
@@ -617,7 +638,59 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
         # you cant buy that many of this item
         if output:
             embed = discord.Embed(title='Inventory Update Error',
-                              description=f"The most amount of {item.name.title()} you can buy is {item.max_quantity}", color=ERROR_COLOR)
+                                  description=f"The most amount of {item.name.title()} you can buy is {item.max_quantity}", color=ERROR_COLOR)
             await ctx.send(embed=embed)
 
         return False
+
+
+def remove_from_inventory(ctx, item_type, quantity, item_id=None):
+    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
+    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventory_info = inventory_doc['inventories'][inventory_id]
+
+    if inventory_info['size'] == 0:
+        return False
+    else:
+        if item_id is None:
+            for item_id in inventory_info['inventory'].keys():
+                if bot_utils.item_lookup(item_id).type == item_type:
+                    inventory_info['inventory'][item_id] -= quantity
+                    inventory_info['size'] -= quantity
+        else:
+            for item_id in inventory_info['inventory'].keys():
+                if bot_utils.item_lookup(item_id).id == item_id:
+                    inventory_info['inventory'][item_id] -= quantity
+                    inventory_info['size'] -= quantity
+
+        inventory_collection.update_one(
+            {'guild_id': ctx.guild.id},
+            {"$set":
+                {
+                    'inventories': inventory_doc['inventories']
+                }})
+
+        return True
+
+
+def check_inventory(ctx, item_type=None, item_id=None):
+    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
+    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventory_info = inventory_doc['inventories'][inventory_id]
+
+    if inventory_info['size'] == 0:
+        # nothing in inventory to give
+        return 0
+    else:
+        if item_id is None:
+            count = 0
+
+            for item_id, quantity in inventory_info['inventory'].items():
+                if bot_utils.item_lookup(item_id).type == item_type:
+                    count += quantity
+
+            return count
+        else:
+            for item_id, quantity in inventory_info['inventory'].items():
+                if bot_utils.item_lookup(item_id).id == int(item_id):
+                    return quantity
