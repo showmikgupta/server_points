@@ -19,7 +19,7 @@ user_data_collection = db["UserData"]
 inventory_collection = db["Inventories"]
 
 items = {
-    "0": Item(0, 'ale', 10, ItemType.CONSUMABLE, "Alchoholic drink", 3),
+    "0": Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3),
     "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5),
     "2": Item(2, 'long sword', 100, ItemType.WEAPON,
                   "Sword that attacks slower but does more damage than a basic sword", 1),
