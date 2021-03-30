@@ -552,9 +552,13 @@ def upgrade_database():
             level = members[user_id]['level']
             xp = members[user_id]['xp']
             inventory_id = str(uuid1())
+            total_gift = members[user_id]['total_gift']
 
-            updated_members[user_id] = bot_utils.encode_userdata(
-                UserData(user_id, points, level, xp, inventory_id))
+            userdata = UserData(user_id, points, level, xp, inventory_id)
+            userdata.set_total_gift = total_gift
+
+            updated_members[user_id] = bot_utils.encode_userdata(userdata)
+
             inventories[inventory_id] = {
                 'id': inventory_id,
                 'capacity': 20,
