@@ -1,8 +1,7 @@
 # bot.py
 import random
 import os
-import operator
-from uuid import uuid1
+from operator import itemgetter
 from threading import Timer
 import asyncio
 
@@ -14,7 +13,6 @@ from datetime import datetime, timedelta
 
 import bot_utils
 from VoiceActivity import VoiceActivity
-from UserData import UserData
 from Shop import Shop
 from Item import Item
 from ItemType import ItemType
@@ -48,19 +46,12 @@ LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
                   "Sword that attacks slower but does more damage than a basic sword", 1)
 
 
-@bot.event
-async def on_error(event, *args, **kwargs):
-    message = args[0]  # Gets the message object
-    await bot.send_message(message.channel, f"You caused an error!\n{message}")
-
-
 # action to perform when bot is ready
 @bot.event
 async def on_ready():
     print("Bot is ready")
 
-    for guild in bot.guilds:
-        active_guilds.append(guild.id)
+    active_guilds = [guild.id for guild in bot.guilds]
 
 
 # create new entry for the server
@@ -71,9 +62,9 @@ async def on_guild_join(guild):
 
     for member in guild.members:
         await member.create_dm()
-        await member.dm_channel.send(
-            "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
-        )
+        embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
+                          description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
+        await member.send(embed=embed)
 
 
 # when a server changed its name, afk timeout, etc...
@@ -91,9 +82,9 @@ async def on_guild_update(before, after):
 async def on_member_join(member):
     bot_utils.create_user_entry(member.guild, member)
     await member.create_dm()
-    await member.dm_channel.send(
-        "Welcome to DisruptPoints (name is WIP).\nType '!help' for a lsit of commands"
-    )
+    embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
+                        description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
+    await member.send(embed=embed)
 
 
 @bot.event
@@ -131,7 +122,7 @@ async def on_message_edit(before, after):
 
     # update with the difference
     difference = after_points - before_points
-    bot_utils.update_xp(before.guild, before.author, difference)
+    bot_utils.update_xp(after.guild, before.author, difference)
 
 
 @bot.event
@@ -255,7 +246,7 @@ async def gift_points(ctx, recipient, amount):
 
 @bot.command(name='gamble', help='Gamble a certain amount of server points')
 async def gamble(ctx, amount):
-    doc = bot_utils.get_guild_doc(ctx.guild)
+    doc = bot_utils.get_userdata_doc(ctx.guild)
     user_points = doc['members'][str(ctx.author.id)]['points']
     min_amount = 1000
 
@@ -305,9 +296,9 @@ async def gamble(ctx, amount):
 
 @bot.command(name='inventory', help='Displays the current inventory of the user')
 async def display_inventory(ctx):
-    doc = bot_utils.get_guild_doc(ctx.guild)
+    doc = bot_utils.get_userdata_doc(ctx.guild)
     inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
-    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
     inventories = inventory_doc['inventories']
     inventory_info = inventories[str(inventory_id)]
     inventory = inventory_info['inventory']
@@ -327,22 +318,20 @@ async def display_inventory(ctx):
 
 @bot.command(name='rank', help='Displays user current rank and exp')
 async def rank(ctx):
-    xp = bot_utils.get_xp(ctx.guild, ctx.author)
-    doc = bot_utils.get_guild_doc(ctx.guild)
-    members = doc['members']
-    user_info = members[str(ctx.author.id)]
-    user_data = bot_utils.decode_userdata(user_info)
-    rank = user_data.get_rank()
+    doc = bot_utils.get_userdata_doc(ctx.guild)
+    xp = doc['members'][str(ctx.author.id)]['xp']
+    rank = bot_utils.get_rank(doc['members'][str(ctx.author.id)]['level'])
+
     embed = discord.Embed(title=f"{ctx.author.name}'s Rank",
                           description=f"Rank: {rank}\nXP: {xp}",
                           color=ACCENT_COLOR)
     await ctx.send(embed=embed)
 
 
-@bot.command(name='shop', help='Displays what you can buy in the store\nTo buy enter "$buy <name in lowercase>"')
+@bot.command(name='shop', help='Displays what you can buy in the store\nTo buy enter "$buy <name> <quantity: default to 1 if omitted>"')
 async def shop(ctx):
     embed = discord.Embed(title=f"{main_shop.name}",
-                          description="Explore the shop for basic starting items\nTo buy enter '$buy <name in lowercase>'",
+                          description="Explore the shop for basic starting items\nTo buy enter '$buy <name> <quantity: default to 1 if omitted>'",
                           color=ACCENT_COLOR)
 
     for item in main_shop.items:
@@ -446,28 +435,24 @@ async def cheers(ctx, person):
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
 async def leaderboard(ctx):
     # get all user data
-    doc = bot_utils.get_guild_doc(ctx.guild)
+    doc = bot_utils.get_userdata_doc(ctx.guild)
     members = doc['members']
 
     # get xp for all users
-    xp = []
-
-    for (user_id, user_data) in members.items():
-        xp.append(bot_utils.decode_userdata(user_data))
+    xp = [members[key] for key in members.keys()]
 
     # Sort the XP from greatest to least
-    sorted_xp = sorted(xp, key=operator.attrgetter('xp'))
-    sorted_xp.reverse()
+    xp.sort(key=itemgetter('xp'), reverse=True)
 
     # display top 10
     leaderboard_string = ""
     counter = 1
 
-    for user_data in sorted_xp:
-        username = await bot.fetch_user(user_data.get_user_id())
+    for user_data in xp:
+        username = await bot.fetch_user(user_data['user_id'])
 
         if not username.bot:
-            leaderboard_string += f"{counter}. {username.name} | {user_data.get_xp()}\n"
+            leaderboard_string += f"{counter}. {username.name} | {user_data['xp']}\n"
             counter += 1
 
             if counter == 11:
@@ -548,23 +533,21 @@ def upgrade_database():
         members = doc['members']
 
         for user_id in members.keys():
-            points = members[user_id]['points'] + 10000
+            points = members[user_id]['points']
             level = members[user_id]['level']
             xp = members[user_id]['xp']
-            inventory_id = str(uuid1())
             total_gift = members[user_id]['total_gift']
+            inventory_id = members[user_id]['inventory_id']
 
-            userdata = UserData(user_id, points, level, xp, inventory_id)
-            userdata.set_total_gift = total_gift
+            userdata = bot_utils.encode_userdata(user_id, points, level, xp, total_gift, inventory_id)
+            updated_members[user_id] = userdata
 
-            updated_members[user_id] = bot_utils.encode_userdata(userdata)
-
-            inventories[inventory_id] = {
-                'id': inventory_id,
-                'capacity': 20,
-                'size': 0,
-                'inventory': {}
-            }
+            # inventories[inventory_id] = {
+            #     'id': inventory_id,
+            #     'capacity': 20,
+            #     'size': 0,
+            #     'inventory': {}
+            # }
 
         user_data_collection.update_one(
             {'guild_id': doc['guild_id']},
@@ -573,12 +556,12 @@ def upgrade_database():
                     'members': updated_members
                 }})
 
-        inventory_collection.update_one(
-            {'guild_id': doc['guild_id']},
-            {"$set":
-                {
-                    'inventories': inventories
-                }})
+        # inventory_collection.update_one(
+        #     {'guild_id': doc['guild_id']},
+        #     {"$set":
+        #         {
+        #             'inventories': inventories
+        #         }})
 
 
 async def add_to_inventory(ctx, item_id, quantity, output=True):
@@ -591,7 +574,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
         inventory_id = bot_utils.get_user_inventory_id(
             ctx.guild, ctx.author)  # get users inventory id from userdata db
         # get all inventory data from the users guild
-        inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+        inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
         # get the users inventory information
         inventory_data = inventory_doc['inventories'][inventory_id]
 
@@ -650,7 +633,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
 
 def remove_from_inventory(ctx, item_type, quantity, item_id=None):
     inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
-    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
     inventory_info = inventory_doc['inventories'][inventory_id]
 
     if inventory_info['size'] == 0:
@@ -679,7 +662,7 @@ def remove_from_inventory(ctx, item_type, quantity, item_id=None):
 
 def check_inventory(ctx, item_type=None, item_id=None):
     inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
-    inventory_doc = bot_utils.get_guild_inventory(ctx.guild)
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
     inventory_info = inventory_doc['inventories'][inventory_id]
 
     if inventory_info['size'] == 0:
