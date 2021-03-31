@@ -18,14 +18,14 @@ user_data_collection = db["UserData"]
 inventory_collection = db["Inventories"]
 
 items = {
-    "0": Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3),
-    "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5),
+    "0": Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3, 1),
+    "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5, 1),
     "2": Item(2, 'long sword', 100, ItemType.WEAPON,
-                  "Sword that attacks slower but does more damage than a basic sword", 1),
-    "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20),
-    "4": Item(4, 'hat', 5, ItemType.ARMOR, "Leather hat that offers minimal protection", 1),
-    "5": Item(5, 'message in a bottle', -1, ItemType.JUNK, "A secret message for sailors of the past", 3),
-    "6": Item(7, 'coconuts', 10, ItemType.CONSUMABLE, "Sweet and refreshing snack from the beach", 10),
+                  "Sword that attacks slower but does more damage than a basic sword", 1, 1),
+    "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20, 1),
+    "4": Item(4, 'hat', 5, ItemType.ARMOR, "Leather hat that offers minimal protection", 1, 1),
+    "5": Item(5, 'message in a bottle', -1, ItemType.JUNK, "A secret message for sailors of the past", 3, 1),
+    "6": Item(7, 'coconuts', 10, ItemType.CONSUMABLE, "Sweet and refreshing snack from the beach", 10, 1),
 }
 
 def item_lookup(item_id):
@@ -72,18 +72,9 @@ def calculate_message_xp(message):
         integer: Point value of the message
     """
     points = 0
-
-    if message.mention_everyone:
-        points += 5
-
-    for message.attachment in message.attachments:
-        points += 5
-
-    for message.mention in message.mentions:
-        points += 5
-
-    for message.mention in message.role_mentions:
-        points += 5
+    points += 5 if message.mention_everyone else 0
+    points += (len(message.attachments) * 5)
+    points += (len(message.role_mentions) * 5)
 
     if 0 > len(message.content) <= 5:
         points += 5
