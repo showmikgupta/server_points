@@ -6,6 +6,10 @@ from uuid import uuid1
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
+from BottleItem import BottleItem
+from CosmeticItem import CosmeticItem
+from DrinkItem import DrinkItem
+from FoodItem import FoodItem
 from Item import Item
 from ItemType import ItemType
 
@@ -18,14 +22,28 @@ user_data_collection = db["UserData"]
 inventory_collection = db["Inventories"]
 
 items = {
-    "0": Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3, 1),
-    "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5, 1),
-    "2": Item(2, 'long sword', 100, ItemType.WEAPON,
-              "Sword that attacks slower but does more damage than a basic sword", 1, 1),
-    "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20, 1),
-    "4": Item(4, 'hat', 5, ItemType.ARMOR, "Leather hat that offers minimal protection", 1, 1),
-    "5": Item(5, 'message in a bottle', -1, ItemType.JUNK, "A secret message for sailors of the past", 3, 1),
-    "6": Item(7, 'coconuts', 10, ItemType.CONSUMABLE, "Sweet and refreshing snack from the beach", 10, 1),
+    "0": DrinkItem(0, 'ale', 15, ItemType.ALCOHOL,
+                   "A classic alchoholic drink made from the best ingredients on the island", 5, 0, 0, True),
+    "1": FoodItem(1, 'coconut', 5,
+                  ItemType.CONSUMABLE, "A refreshing snack that can be found at the beach", 10, .6, 10),
+    "2": FoodItem(2, 'fish', 10, ItemType.CONSUMABLE, "Smelly and slimey delicacy of the ocean", 5, .1, 30),
+    "3": FoodItem(3, 'crab', 15, ItemType.CONSUMABLE, "Red and delicious seafood", 5, .25, 30),
+    "4": CosmeticItem(4, 'straw hat', 20, ItemType.ARMOR, "Flimsy app perfect to wearing at the beach", 1, .1, 1),
+    "5": CosmeticItem(5, 'sandals', 20, ItemType.ARMOR, "Pair or worm footwear you found at the beach", 1, .1, 1),
+    "6": CosmeticItem(6, 'umbrealla hat', 35, ItemType.ARMOR, "An umbrella and a hat in one!", 1, .1, 1),
+    "7": BottleItem(7, 'pogfish in a bottle', -1, ItemType.JUNK, "Wow! A real life Pogfish! Wait... What's a pog?", 1,
+                    .2, None, "pogfish"),
+    "8": BottleItem(8, 'stock report', -1, ItemType.JUNK,
+                    "Cryptic message... What's GME and how is it going to the moon?", 1, .2, "GME TO THE MOON!", None),
+    "9": BottleItem(9, 'blobfish in a bottle', -1, ItemType.JUNK, "Wow! A real life Blobfish! Wait... EWW!", 1,
+                    .2, None, "blobfish"),
+    "10": BottleItem(10, 'love letter in a bottle', -1, ItemType.JUNK, "Oh island love. Isn't it beautiful?", 1,
+                     .2, "My sweet Billy.\nI long to spend the rest of my days in your arms while on top of the energy mountain. The home we could build would be perfect to raise children after washing ashore this island.\nWith love and lust,\nCarolina D.", None),
+    "11": BottleItem(11, 'cry for help in a bottle', -1, ItemType.JUNK, "Someones in trouble! Hurry!", 1, .2,
+                     "The lightining! It won't stop clashing on the land. Gerald, we need your armor to save us! If you get this, come to our home and rescue the kids. Cari and I are going to the source to stop it.\n\t-Billy", None),
+    "12": BottleItem(12, 'message in a bottle', -1, ItemType.JUNK, "Damn that sucks", 1, .2,
+                     "You have small booty... and booty too ARGGHAHAH", None),
+    "13": Item(13, 'plastic shovel', -1, ItemType.JUNK, "Tool to help you dig...barely", 1, .1)
 }
 
 
@@ -165,7 +183,8 @@ def create_guild_entry(guild):
 
     for user_id in get_user_ids(guild):
         inventory_id = str(uuid1())
-        members[str(user_id)] = encode_userdata(user_id, 0, 1, 0, 0, inventory_id)
+        members[str(user_id)] = encode_userdata(
+            user_id, 0, 1, 0, 0, inventory_id)
         inventories[inventory_id] = {
             'id': inventory_id,
             'capacity': 20,
@@ -202,7 +221,8 @@ def create_user_entry(guild, user):
     else:
         inventory_id = str(uuid1())
         members = doc['members']
-        members[str(user.id)] = encode_userdata(user.id, 0, 1, 0, 0, inventory_id)
+        members[str(user.id)] = encode_userdata(
+            user.id, 0, 1, 0, 0, inventory_id)
 
         user_data_collection.update_one(
             {'guild_id': guild.id},
