@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 
 import bot_utils
+from DrinkItem import DrinkItem
+from FoodItem import FoodItem
 from Item import Item
 from ItemType import ItemType
 from Shop import Shop
@@ -39,11 +41,12 @@ active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
 main_shop = Shop("Main Shop")
 
-ALE = Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3, 1)
-HEALTH_POTION = Item(1, 'health potion', 20,
-                     ItemType.CONSUMABLE, "Restores HP over  time", 5, 1)
-LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
-                  "Sword that attacks slower but does more damage than a basic sword", 1, 1)
+ALE = DrinkItem(0, 'ale', 15, ItemType.ALCOHOL,
+                "A classic alchoholic drink made from the best ingredients on the island", 5, 0, 0, True)
+COCONUT = FoodItem(1, 'coconut', 10,
+                   ItemType.CONSUMABLE, "A refreshing snack that can be found at the beach", 10, .6, 10)
+FISH = FoodItem(2, 'fish', 15, ItemType.CONSUMABLE,
+                "Smelly and slimey delicacy of the ocean", 5, .1, 30)
 
 
 # action to perform when bot is ready
@@ -383,22 +386,16 @@ async def explore(ctx, location):
         await ctx.send(embed=embed)
         await ctx.send(file=discord.File('images/entering_beach.gif'))
 
-        item_probs = {
-            "3": 50,
-            "4": 10,
-            "5": 30,
-            "6": 25
-        }
-
+        item_ids = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",]
         item_found = None
 
         for i in range(7):
-            item_to_check = str(random.randint(3, 6))
+            item_to_check = random.randint(0, 12)
             success_condition = random.randint(0, 100)
+            item_found = bot_utils.item_lookup(item_ids[item_to_check])
 
-            if 1 <= success_condition <= item_probs[item_to_check]:
-                item_found = bot_utils.item_lookup(item_to_check)
-                await add_to_inventory(ctx, item_to_check, 1, output=False)
+            if 1 <= success_condition < (item_found.probability * 100):
+                await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
                 break
 
         description = ""
@@ -512,8 +509,8 @@ def reset_total_gift():
 
 def populate_shop():
     main_shop.items.append(ALE)
-    main_shop.items.append(HEALTH_POTION)
-    main_shop.items.append(LONG_SWORD)
+    main_shop.items.append(COCONUT)
+    main_shop.items.append(FISH)
 
 
 def run():
