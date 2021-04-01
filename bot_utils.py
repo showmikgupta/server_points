@@ -1,10 +1,10 @@
-import random
-import os
 import math
+import os
+import random
 from uuid import uuid1
 
-from pymongo import MongoClient
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 from Item import Item
 from ItemType import ItemType
@@ -21,12 +21,13 @@ items = {
     "0": Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3, 1),
     "1": Item(1, 'health potion', 20, ItemType.CONSUMABLE, "Restores HP over  time", 5, 1),
     "2": Item(2, 'long sword', 100, ItemType.WEAPON,
-                  "Sword that attacks slower but does more damage than a basic sword", 1, 1),
+              "Sword that attacks slower but does more damage than a basic sword", 1, 1),
     "3": Item(3, 'seashell', 1, ItemType.JUNK, "Natural objects you can find along the beach", 20, 1),
     "4": Item(4, 'hat', 5, ItemType.ARMOR, "Leather hat that offers minimal protection", 1, 1),
     "5": Item(5, 'message in a bottle', -1, ItemType.JUNK, "A secret message for sailors of the past", 3, 1),
     "6": Item(7, 'coconuts', 10, ItemType.CONSUMABLE, "Sweet and refreshing snack from the beach", 10, 1),
 }
+
 
 def item_lookup(item_id):
     return items[item_id]
@@ -164,7 +165,7 @@ def create_guild_entry(guild):
 
     for user_id in get_user_ids(guild):
         inventory_id = str(uuid1())
-        members[str(user_id)] = encode_userdata(user_id, 0, 1, 0, inventory_id)
+        members[str(user_id)] = encode_userdata(user_id, 0, 1, 0, 0, inventory_id)
         inventories[inventory_id] = {
             'id': inventory_id,
             'capacity': 20,
@@ -201,7 +202,7 @@ def create_user_entry(guild, user):
     else:
         inventory_id = str(uuid1())
         members = doc['members']
-        members[str(user.id)] = encode_userdata(user.id, 0, 1, 0, inventory_id)
+        members[str(user.id)] = encode_userdata(user.id, 0, 1, 0, 0, inventory_id)
 
         user_data_collection.update_one(
             {'guild_id': guild.id},
@@ -316,7 +317,8 @@ def update_xp(guild, user, xp, reset=False):
                     members[str(user.id)]['level'] += 1
 
                     # add points
-                    members[str(user.id)]['points'] += calculate_levelup_points(members[str(user.id)]['level'])
+                    members[str(
+                        user.id)]['points'] += calculate_levelup_points(members[str(user.id)]['level'])
         except KeyError:
             members[str(user.id)]['xp'] = xp
 

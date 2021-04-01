@@ -1,21 +1,21 @@
 # bot.py
-import random
+import asyncio
 import os
+import random
+from datetime import datetime, timedelta
 from operator import itemgetter
 from threading import Timer
-import asyncio
 
-from dotenv import load_dotenv
-from discord.ext import commands
 import discord
+from discord.ext import commands
+from dotenv import load_dotenv
 from pymongo import MongoClient
-from datetime import datetime, timedelta
 
 import bot_utils
-from VoiceActivity import VoiceActivity
-from Shop import Shop
 from Item import Item
 from ItemType import ItemType
+from Shop import Shop
+from VoiceActivity import VoiceActivity
 
 UPDATE_DOCS = False
 ERROR_COLOR = LOSE_COLOR = 0xFF0000
@@ -39,11 +39,11 @@ active_guilds = []
 ongoing_calls = {}  # holds information on people in ongoing calls
 main_shop = Shop("Main Shop")
 
-ALE = Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3)
+ALE = Item(0, 'ale', 10, ItemType.ALCOHOL, "Alchoholic drink", 3, 1)
 HEALTH_POTION = Item(1, 'health potion', 20,
-                     ItemType.CONSUMABLE, "Restores HP over  time", 5)
+                     ItemType.CONSUMABLE, "Restores HP over  time", 5, 1)
 LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
-                  "Sword that attacks slower but does more damage than a basic sword", 1)
+                  "Sword that attacks slower but does more damage than a basic sword", 1, 1)
 
 
 # action to perform when bot is ready
@@ -51,6 +51,7 @@ LONG_SWORD = Item(2, 'long sword', 100, ItemType.WEAPON,
 async def on_ready():
     print("Bot is ready")
 
+    global active_guilds
     active_guilds = [guild.id for guild in bot.guilds]
 
 
@@ -63,7 +64,7 @@ async def on_guild_join(guild):
     for member in guild.members:
         await member.create_dm()
         embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
-                          description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
+                              description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
         await member.send(embed=embed)
 
 
@@ -83,7 +84,7 @@ async def on_member_join(member):
     bot_utils.create_user_entry(member.guild, member)
     await member.create_dm()
     embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
-                        description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
+                          description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
     await member.send(embed=embed)
 
 
@@ -378,7 +379,7 @@ async def buy(ctx, name, quantity=1):
 async def explore(ctx, location):
     if location.lower() == 'beach':
         embed = discord.Embed(
-            title="Exploring", description='You have now entered the beach', color=ACCENT_COLOR)
+            title="Exploring", description='You have now entered the beach... It will take some time to find some items. Patience is key.', color=ACCENT_COLOR)
         await ctx.send(embed=embed)
         await ctx.send(file=discord.File('images/entering_beach.gif'))
 
@@ -391,13 +392,14 @@ async def explore(ctx, location):
 
         item_found = None
 
-        for i in range(3):
+        for i in range(7):
             item_to_check = str(random.randint(3, 6))
             success_condition = random.randint(0, 100)
 
             if 1 <= success_condition <= item_probs[item_to_check]:
                 item_found = bot_utils.item_lookup(item_to_check)
                 await add_to_inventory(ctx, item_to_check, 1, output=False)
+                break
 
         description = ""
 
@@ -408,7 +410,7 @@ async def explore(ctx, location):
 
         description += 'You have now exited the beach'
 
-        await asyncio.sleep(7)
+        await asyncio.sleep(5)
         embed = discord.Embed(title="Returning to town",
                               description=description, color=ACCENT_COLOR)
         await ctx.send(embed=embed)
@@ -495,8 +497,8 @@ def reset_total_gift():
     for doc in docs:
         members = doc['members']
 
-        for user_id, user_data in members.items():
-            user_data['total_gift'] = 0
+        for user_id in members.keys():
+            members[user_id]['total_gift'] = 0
 
         user_data_collection.update_one(
             {'guild_id': doc['guild_id']},
@@ -529,7 +531,7 @@ def upgrade_database():
 
     for doc in docs:
         updated_members = {}
-        inventories = {}
+        # inventories = {}
         members = doc['members']
 
         for user_id in members.keys():
@@ -539,7 +541,8 @@ def upgrade_database():
             total_gift = members[user_id]['total_gift']
             inventory_id = members[user_id]['inventory_id']
 
-            userdata = bot_utils.encode_userdata(user_id, points, level, xp, total_gift, inventory_id)
+            userdata = bot_utils.encode_userdata(
+                user_id, points, level, xp, total_gift, inventory_id)
             updated_members[user_id] = userdata
 
             # inventories[inventory_id] = {

@@ -1,5 +1,6 @@
-import bot
 from dotenv import load_dotenv  # used for getting environment vars
+
+import bot
 
 
 def main():
