@@ -417,18 +417,19 @@ async def explore(ctx, location):
 @bot.command(name='cheers', help='Gives someone an alcoholic beverage if you one if your inventory')
 async def cheers(ctx, person):
     recipient_id = ctx.message.mentions[0].id
-    alcohol_quantity = check_inventory(ctx, item_type=ItemType.ALCOHOL)
+    alcohol_id = check_alcohol(ctx.guild, ctx.author)
 
-    if alcohol_quantity == 0:
-        embed = discord.Embed(title="Low on booze",
-                              description="You don't have any alcohol to use to cheers someone", color=ERROR_COLOR)
-        await ctx.send(embed=embed)
-    else:
-        remove_from_inventory(ctx, ItemType.ALCOHOL, 1)
+    if alcohol_id:
+        remove_from_inventory(ctx.guild, ctx.author, alcohol_id, 1)
         recipient_id = f'<@{recipient_id}>'
 
         await ctx.send(f'Cheers {recipient_id}! {ctx.author.name} sent you some booze.')
         await ctx.send(file=discord.File('images/cheers.gif'))
+    else:
+        embed = discord.Embed(title="Low on booze",
+                              description="You don't have any alcohol to use to cheers someone", color=ERROR_COLOR)
+        await ctx.send(embed=embed)
+
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
@@ -631,33 +632,48 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
         return False
 
 
-def remove_from_inventory(ctx, item_type, quantity, item_id=None):
-    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
-    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
+def remove_from_inventory(guild, user, item_id, quantity):
+    inventory_id = bot_utils.get_user_inventory_id(guild, user)
+    inventory_doc = bot_utils.get_inventory_doc(guild)
     inventory_info = inventory_doc['inventories'][inventory_id]
 
     if inventory_info['size'] == 0:
         return False
     else:
-        if item_id is None:
-            for item_id in inventory_info['inventory'].keys():
-                if bot_utils.item_lookup(item_id).type == item_type:
-                    inventory_info['inventory'][item_id] -= quantity
-                    inventory_info['size'] -= quantity
-        else:
-            for item_id in inventory_info['inventory'].keys():
-                if bot_utils.item_lookup(item_id).id == item_id:
-                    inventory_info['inventory'][item_id] -= quantity
-                    inventory_info['size'] -= quantity
+        try:
+            if inventory_info['inventory'][item_id] - quantity >= 0:
+                inventory_info['inventory'][item_id] -= quantity
+            else:
+                inventory_info['inventory'][item_id] = 0
+        except KeyError:
+            return False
 
         inventory_collection.update_one(
-            {'guild_id': ctx.guild.id},
+            {'guild_id': guild.id},
             {"$set":
                 {
                     'inventories': inventory_doc['inventories']
                 }})
 
         return True
+
+
+def check_alcohol(guild, user):
+    inventory_id = bot_utils.get_user_inventory_id(guild, user)
+    inventory_doc = bot_utils.get_inventory_doc(guild)
+    inventory_info = inventory_doc['inventories'][inventory_id]
+
+    if inventory_info['size'] == 0:
+        # nothing in inventory to give
+        return None
+
+    for item_id in inventory_info['inventory'].keys():
+        item = bot_utils.item_lookup(item_id)
+
+        if isinstance(item, DrinkItem) and item.is_alcohol:
+            return item_id
+
+    return None
 
 
 def check_inventory(ctx, item_type=None, item_id=None):
