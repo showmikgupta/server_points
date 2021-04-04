@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 
 import bot_utils
+from BottleItem import BottleItem
 from DrinkItem import DrinkItem
 from FoodItem import FoodItem
 from Item import Item
@@ -430,6 +431,38 @@ async def cheers(ctx, person):
                               description="You don't have any alcohol to use to cheers someone", color=ERROR_COLOR)
         await ctx.send(embed=embed)
 
+
+@bot.command(name='read', help='Reads and item that contains a message')
+async def read_item(ctx, item_name):
+    item = None
+    item_name = item_name.lower()
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
+    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
+    inventory = inventory_doc['inventories'][inventory_id]['inventory']
+
+    for item_id in inventory.keys():
+        current_item = bot_utils.item_lookup(item_id)
+
+        if current_item.name == item_name:
+            item = current_item
+            break
+
+    if item is None:
+        # error: item does not exist in your inventory
+        embed = discord.Embed(title="Error",
+                              description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    if not isinstance(item, BottleItem):
+        # error: item is not something that can be read
+        embed = discord.Embed(title="Error",
+                              description="That's not something that you can read", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    embed = discord.Embed(title=f"Message in a Bottle: {item.name.title()}",
+                          description=item.message, color=ACCENT_COLOR)
+    await ctx.send(file=discord.File('images/opening_message.gif'))
+    await ctx.send(embed=embed)
 
 
 @bot.command(name='leaderboard', help='Displays the top ten users with the most xp')
