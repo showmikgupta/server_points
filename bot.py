@@ -309,7 +309,7 @@ async def display_inventory(ctx):
     inventory = inventory_info['inventory']
 
     embed = discord.Embed(title=f"{ctx.author.name}'s Inventory",
-                          description="You have the following items:",
+                          description=f"Capacity: {inventory_info['size']}/{inventory_info['capacity']}\nYou have the following items:",
                           color=ACCENT_COLOR)
 
     # for loop busted wtf
@@ -675,9 +675,13 @@ def remove_from_inventory(guild, user, item_id, quantity):
     else:
         try:
             if inventory_info['inventory'][item_id] - quantity >= 0:
+                inventory_info['size'] -= quantity
                 inventory_info['inventory'][item_id] -= quantity
             else:
+                inventory_info['size'] -= inventory_info['inventory'][item_id]
                 inventory_info['inventory'][item_id] = 0
+
+            inventory_info['size'] -= quantity
         except KeyError:
             return False
 
