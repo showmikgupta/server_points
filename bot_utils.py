@@ -519,3 +519,10 @@ def send_points(guild, sender_id, recipient_id, amount):
 def get_user_inventory_id(guild, user):
     doc = get_userdata_doc(guild)
     return doc['members'][str(user.id)]['inventory_id']
+
+
+def get_user_inventory(guild, user):
+    inventory_doc =  inventory_collection.find_one({'guild_id': guild.id})
+    inventory_id = get_user_inventory_id(guild, user)
+
+    return inventory_doc['inventories'][inventory_id]['inventory']
