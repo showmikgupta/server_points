@@ -516,7 +516,7 @@ async def consume(ctx, item_name):  # ex: $consume "coconut"
 @bot.command(name='energy', help='Shows your current energy level')
 async def display_energy(ctx):
     embed = discord.Embed(title="Energy",
-                              description=f"You have {bot_utils.get_user_energy(ctx.guild, ctx.author)} energy remaining", color=ACCENT_COLOR)
+                          description=f"You have {bot_utils.get_user_energy(ctx.guild, ctx.author)} energy remaining", color=ACCENT_COLOR)
     await ctx.send(embed=embed)
 
 

@@ -51,7 +51,7 @@ def item_lookup(item_id):
     return items[item_id]
 
 
-def encode_userdata(user_id, points, level, xp, total_gift, inventory_id,energy):
+def encode_userdata(user_id, points, level, xp, total_gift, energy, inventory_id):
     """Encodes UserData objects to dictionaries so MongoDB can store UserData
     Args:
         userdata (UserData): Objects representing someone's user data
@@ -64,8 +64,8 @@ def encode_userdata(user_id, points, level, xp, total_gift, inventory_id,energy)
         'level': level,
         'xp': xp,
         'total_gift': total_gift,
-        'inventory_id': inventory_id,
-        'energy': energy
+        'energy': energy,
+        'inventory_id': inventory_id
     }
 
 
@@ -185,7 +185,7 @@ def create_guild_entry(guild):
     for user_id in get_user_ids(guild):
         inventory_id = str(uuid1())
         members[str(user_id)] = encode_userdata(
-            user_id, 0, 1, 0, 0, inventory_id)
+            user_id, 0, 1, 0, 0, 100, inventory_id)
         inventories[inventory_id] = {
             'id': inventory_id,
             'capacity': 20,
@@ -223,7 +223,7 @@ def create_user_entry(guild, user):
         inventory_id = str(uuid1())
         members = doc['members']
         members[str(user.id)] = encode_userdata(
-            user.id, 0, 1, 0, 0, inventory_id)
+            user.id, 0, 1, 0, 0, 100, inventory_id)
 
         user_data_collection.update_one(
             {'guild_id': guild.id},
@@ -523,7 +523,7 @@ def get_user_inventory_id(guild, user):
 
 
 def get_user_inventory(guild, user):
-    inventory_doc =  inventory_collection.find_one({'guild_id': guild.id})
+    inventory_doc = inventory_collection.find_one({'guild_id': guild.id})
     inventory_id = get_user_inventory_id(guild, user)
 
     return inventory_doc['inventories'][inventory_id]['inventory']
