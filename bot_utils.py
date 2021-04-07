@@ -30,7 +30,7 @@ items = {
     "3": FoodItem(3, 'crab', 15, ItemType.CONSUMABLE, "Red and delicious seafood", 5, .25, 30),
     "4": CosmeticItem(4, 'straw hat', 20, ItemType.ARMOR, "Flimsy app perfect to wearing at the beach", 1, .1, 1),
     "5": CosmeticItem(5, 'sandals', 20, ItemType.ARMOR, "Pair or worm footwear you found at the beach", 1, .1, 1),
-    "6": CosmeticItem(6, 'umbrealla hat', 35, ItemType.ARMOR, "An umbrella and a hat in one!", 1, .1, 1),
+    "6": CosmeticItem(6, 'umbrella hat', 35, ItemType.ARMOR, "An umbrella and a hat in one!", 1, .1, 1),
     "7": BottleItem(7, 'pogfish in a bottle', -1, ItemType.JUNK, "Wow! A real life Pogfish! Wait... What's a pog?", 1,
                     .2, None, "pogfish"),
     "8": BottleItem(8, 'stock report', -1, ItemType.JUNK,
@@ -51,7 +51,7 @@ def item_lookup(item_id):
     return items[item_id]
 
 
-def encode_userdata(user_id, points, level, xp, total_gift, inventory_id):
+def encode_userdata(user_id, points, level, xp, total_gift, inventory_id,energy):
     """Encodes UserData objects to dictionaries so MongoDB can store UserData
     Args:
         userdata (UserData): Objects representing someone's user data
@@ -64,7 +64,8 @@ def encode_userdata(user_id, points, level, xp, total_gift, inventory_id):
         'level': level,
         'xp': xp,
         'total_gift': total_gift,
-        'inventory_id': inventory_id
+        'inventory_id': inventory_id,
+        'energy': energy
     }
 
 
@@ -526,3 +527,8 @@ def get_user_inventory(guild, user):
     inventory_id = get_user_inventory_id(guild, user)
 
     return inventory_doc['inventories'][inventory_id]['inventory']
+
+
+def get_user_energy(guild, user):
+    doc = get_userdata_doc(guild)
+    return doc['members'][str(user.id)]['energy']

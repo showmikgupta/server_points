@@ -14,6 +14,7 @@ from pymongo import MongoClient
 import bot_utils
 from BottleItem import BottleItem
 from DrinkItem import DrinkItem
+from EdibleItem import EdibleItem
 from FoodItem import FoodItem
 from Item import Item
 from ItemType import ItemType
@@ -381,38 +382,142 @@ async def buy(ctx, name, quantity=1):
 
 @bot.command(name='explore', help='explore')
 async def explore(ctx, location):
+    doc = bot_utils.get_userdata_doc(ctx.guild)
+    currentUserEnergy = doc['members'][str(ctx.author.id)]['energy']
+    beachEnergyCost = 5
+    # loaction2EnergyCost = .15
+    # location3EnergyCost = .25
+    # location4EnergyCost = .50
     if location.lower() == 'beach':
-        embed = discord.Embed(
-            title="Exploring", description='You have now entered the beach... It will take some time to find some items. Patience is key.', color=ACCENT_COLOR)
-        await ctx.send(embed=embed)
-        await ctx.send(file=discord.File('images/entering_beach.gif'))
+        if currentUserEnergy >= beachEnergyCost:
+            # consume energy
+            doc['members'][str(ctx.author.id)]['energy'] -= beachEnergyCost
 
-        item_ids = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",]
-        item_found = None
+            embed = discord.Embed(
+                title="Exploring", description='You have now entered the beach... It will take some time to find some items. Patience is key.', color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+            await ctx.send(file=discord.File('images/entering_beach.gif'))
 
-        for i in range(7):
-            item_to_check = random.randint(0, 12)
-            success_condition = random.randint(0, 100)
-            item_found = bot_utils.item_lookup(item_ids[item_to_check])
+            item_ids = ["1", "2", "3", "4", "5", "6",
+                        "7", "8", "9", "10", "11", "12", "13", ]
+            item_found = None
 
-            if 1 <= success_condition < (item_found.probability * 100):
-                await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
-                break
+            for i in range(7):
+                item_to_check = random.randint(0, 12)
+                success_condition = random.randint(0, 100)
+                item_found = bot_utils.item_lookup(item_ids[item_to_check])
 
-        description = ""
+                if 1 <= success_condition < (item_found.probability * 100):
+                    await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
+                    break
 
-        if item_found is not None:
-            description += f'You found a(n) {item_found.name.title()}\n'
+            description = ""
+
+            if item_found is not None:
+                description += f'You found a(n) {item_found.name.title()}\n'
+            else:
+                description += 'You found nothing.\n'
+
+            description += 'You have now exited the beach'
+
+            await asyncio.sleep(5)
+            embed = discord.Embed(title="Returning to town",
+                                  description=description, color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+            await ctx.send(file=discord.File('images/returning_to_town.gif'))
+
+            user_data_collection.update_one(
+                {'guild_id': doc['guild_id']},
+                {"$set":
+                 {
+                     'members': doc['members']
+                 }})
         else:
-            description += 'You found nothing.\n'
+            embed = discord.Embed(title="Low on energy",
+                                  description=f"You don't have enough energy to explore right now. Go eat something.\nCurrent energy: {currentUserEnergy}", color=ERROR_COLOR)
+            await ctx.send(embed=embed)
 
-        description += 'You have now exited the beach'
 
-        await asyncio.sleep(5)
-        embed = discord.Embed(title="Returning to town",
-                              description=description, color=ACCENT_COLOR)
-        await ctx.send(embed=embed)
-        await ctx.send(file=discord.File('images/returning_to_town.gif'))
+@bot.command(name='consume', help='Consumes a food item to restore energy')
+async def consume(ctx, item_name):  # ex: $consume "coconut"
+    # checking to see if the item exists in general
+    item = None
+    item_name = item_name.lower()
+
+    for item_id, curr_item in bot_utils.items.items():
+        if curr_item.name == item_name:
+            item = curr_item
+            break
+
+    if item is None:
+        embed = discord.Embed(title="Error",
+                              description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    # check to see if item exists in inventory
+    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
+    inventory_data = inventory_doc['inventories'][inventory_id]
+
+    item_id = -1
+
+    for curr_item_id in inventory_data['inventory']:
+        if bot_utils.item_lookup(curr_item_id).name == item_name:
+            item_id = curr_item_id
+            break
+
+    if item_id == -1:
+        embed = discord.Embed(title="Error",
+                              description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    # access to item name and id as well as the object
+    if not isinstance(item, EdibleItem):
+        embed = discord.Embed(title="Error",
+                              description=f"You can't eat {item_name.title()}, {ctx.author.name}", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    item_energy = item.energy
+
+    # add energy to user
+    doc = bot_utils.get_userdata_doc(ctx.guild)
+    current_energy = doc['members'][str(ctx.author.id)]['energy']
+
+    if current_energy < 100:
+        if current_energy + item_energy > 100:
+            embed = discord.Embed(title="Delicious!",
+                                  description=f"You gained {100 - current_energy} energy", color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+
+            doc['members'][str(ctx.author.id)]['energy'] = 100
+        else:
+            embed = discord.Embed(title="Delicious!",
+                                  description=f"You gained {item_energy} energy", color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+
+            doc['members'][str(ctx.author.id)]['energy'] += item_energy
+
+        # remove item from inventory
+        remove_from_inventory(ctx.guild, ctx.author, item_id)
+    else:
+        embed = discord.Embed(title="Error",
+                              description="You're already have max energy", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    # update db
+    user_data_collection.update_one(
+        {'guild_id': doc['guild_id']},
+        {"$set":
+         {
+             'members': doc['members']
+         }})
+
+
+@bot.command(name='energy', help='Shows your current energy level')
+async def display_energy(ctx):
+    embed = discord.Embed(title="Energy",
+                              description=f"You have {bot_utils.get_user_energy(ctx.guild, ctx.author)} energy remaining", color=ACCENT_COLOR)
+    await ctx.send(embed=embed)
 
 
 @bot.command(name='cheers', help='Gives someone an alcoholic beverage if you one if your inventory')
@@ -571,9 +676,10 @@ def upgrade_database():
             xp = members[user_id]['xp']
             total_gift = members[user_id]['total_gift']
             inventory_id = members[user_id]['inventory_id']
+            energy = 100
 
             userdata = bot_utils.encode_userdata(
-                user_id, points, level, xp, total_gift, inventory_id)
+                user_id, points, level, xp, total_gift, inventory_id, energy)
             updated_members[user_id] = userdata
 
             # inventories[inventory_id] = {
@@ -665,7 +771,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
         return False
 
 
-def remove_from_inventory(guild, user, item_id, quantity):
+def remove_from_inventory(guild, user, item_id, quantity=1):
     inventory_id = bot_utils.get_user_inventory_id(guild, user)
     inventory_doc = bot_utils.get_inventory_doc(guild)
     inventory_info = inventory_doc['inventories'][inventory_id]
