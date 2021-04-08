@@ -21,6 +21,7 @@ from ItemType import ItemType
 from Shop import Shop
 from VoiceActivity import VoiceActivity
 
+BOT_ID = 818905677010305096
 UPDATE_DOCS = False
 ERROR_COLOR = LOSE_COLOR = 0xFF0000
 WIN_COLOR = 0x00FF00
@@ -54,18 +55,24 @@ FISH = FoodItem(2, 'fish', 10, ItemType.CONSUMABLE,
 # action to perform when bot is ready
 @bot.event
 async def on_ready():
+    """action to perform when bot is ready"""
     print("Bot is ready")
 
     global active_guilds
     active_guilds = [guild.id for guild in bot.guilds]
 
 
-# create new entry for the server
 @bot.event
 async def on_guild_join(guild):
+    """Action when the bot gets added to a new server
+
+    Args:
+        guild (discord.Guild): Server bot was added to
+    """
     bot_utils.create_guild_entry(guild)
     active_guilds.append(guild.id)
 
+    # send direct message to each user in the server
     for member in guild.members:
         await member.create_dm()
         embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
@@ -76,6 +83,14 @@ async def on_guild_join(guild):
 # when a server changed its name, afk timeout, etc...
 @bot.event
 async def on_guild_update(before, after):
+    """Action when server changes name, aft timeout, etc...
+
+    Args:
+        before (discord.Guild): Server information before the update
+        after (discord.Guild): Server information after the update
+    """
+
+    # update guild information in the database
     user_data_collection.update_one({'guild_id': before.id},
                                     {"$set":
                                      {
@@ -86,7 +101,14 @@ async def on_guild_update(before, after):
 
 @bot.event
 async def on_member_join(member):
+    """Action when a new member join a server with the bot
+
+    Args:
+        member (discord.Member): New member the joined the server
+    """
     bot_utils.create_user_entry(member.guild, member)
+
+    # send new member a direct message
     await member.create_dm()
     embed = discord.Embed(title="Welcome to DisruptPoints (the name is WIP)!",
                           description="This bot encourages community engagement with a story that the player follows to uncover the truth of a mysterious world they find themselves in.\nType '$help' to get a list of all commands you can use. Only '$help' and '$shop' will work in this DM since the game store information per server you're on.\nTo use the other commands we recommend creating a channel for this bot and enter them there.", color=ACCENT_COLOR)
@@ -95,6 +117,11 @@ async def on_member_join(member):
 
 @bot.event
 async def on_member_remove(member):
+    """Action when a member leaves/gets removed from a server with the bot
+
+    Args:
+        member (discord.Member): Member that left/got removed
+    """
     bot_utils.remove_user_entry(member.guild, member)
 
 
@@ -105,9 +132,11 @@ async def on_typing(channel, user, when):
 
 @bot.event
 async def on_message(message):
+    # if message is a command, process the command
     await bot.process_commands(message)
 
-    if (not message.content.startswith('$')) and (message.author.id != 818905677010305096):
+    # if the command is not a command and the message is not coming from the bot, update users xp
+    if (not message.content.startswith('$')) and (message.author.id != BOT_ID):
         bot_utils.update_xp(message.guild, message.author,
                             bot_utils.calculate_message_xp(message))
 
@@ -155,6 +184,14 @@ async def on_member_unban(guild, user):
 
 @bot.event
 async def on_voice_state_update(member, before, after):
+    """Action when someones voice state changes. Handles all point collection whem
+       a user is in a voice call.
+
+    Args:
+        member (discord.Member): Member whose voice state changed
+        before (discord.VoiceState): Previous voice state
+        after (discord.VoiceState): Current voice state
+    """
     if str(member.id) in ongoing_calls.keys():  # if the call is ongoing
         if after.channel is None:  # disconnecting from a call
             points = ongoing_calls[str(member.id)].get_points()
@@ -216,6 +253,7 @@ async def gift_points(ctx, recipient, amount):
     try:
         amount = int(amount)
     except ValueError:
+        # error if the user did not enter an integer
         embed = discord.Embed(
             title="Error", description='Invalid amount entered', color=ERROR_COLOR)
         await ctx.send(embed=embed)
@@ -232,6 +270,7 @@ async def gift_points(ctx, recipient, amount):
             await ctx.send(embed=embed)
             return
         else:
+            # check to see if money was successfully sent to the recipient
             money_sent = bot_utils.send_points(
                 ctx.guild, ctx.author.id, recipient_user_id, amount)
 
@@ -396,7 +435,7 @@ async def explore(ctx, location):
                         "7", "8", "9", "10", "11", "12", "13", ]
             item_found = None
 
-            for i in range(7):
+            for _ in range(7):
                 item_to_check = random.randint(0, 12)
                 success_condition = random.randint(0, 100)
                 item_found = bot_utils.item_lookup(item_ids[item_to_check])
@@ -446,7 +485,8 @@ async def consume(ctx, item_name):  # ex: $consume "coconut"
         return await ctx.send(embed=embed)
 
     # check to see if item exists in inventory
-    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+    item_id = bot_utils.check_item_exists_inventory(
+        ctx.guild, ctx.author, item_name)
 
     if item_id == -1:
         embed = discord.Embed(title="Error",
@@ -557,7 +597,8 @@ async def read_item(ctx, item_name):
         return await ctx.send(embed=embed)
 
     # check to see if item exists in inventory
-    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+    item_id = bot_utils.check_item_exists_inventory(
+        ctx.guild, ctx.author, item_name)
 
     if item_id == -1:
         embed = discord.Embed(title="Error",
@@ -596,7 +637,10 @@ async def leaderboard(ctx):
         username = await bot.fetch_user(user_data['user_id'])
 
         if not username.bot:
-            leaderboard_string += f"{counter}. {username.name} | {user_data['xp']}\n"
+            name = username.name
+            rank = bot_utils.get_rank(user_data['level'])
+
+            leaderboard_string += f"{counter}. {name} --- {rank} --- {user_data['xp']}\n"
             counter += 1
 
             if counter == 11:
