@@ -45,9 +45,9 @@ main_shop = Shop("Main Shop")
 
 ALE = DrinkItem(0, 'ale', 15, ItemType.ALCOHOL,
                 "A classic alchoholic drink made from the best ingredients on the island", 5, 0, 0, True)
-COCONUT = FoodItem(1, 'coconut', 10,
+COCONUT = FoodItem(1, 'coconut', 5,
                    ItemType.CONSUMABLE, "A refreshing snack that can be found at the beach", 10, .6, 10)
-FISH = FoodItem(2, 'fish', 15, ItemType.CONSUMABLE,
+FISH = FoodItem(2, 'fish', 10, ItemType.CONSUMABLE,
                 "Smelly and slimey delicacy of the ocean", 5, .1, 30)
 
 
@@ -315,7 +315,7 @@ async def display_inventory(ctx):
 
     # for loop busted wtf
     for item_id, item_quantity in inventory.items():
-        item_name = bot_utils.item_lookup(item_id).name
+        item_name = bot_utils.item_lookup(item_id)['name']
         embed.add_field(name=item_name.title(),
                         value=item_quantity, inline=True)
 
@@ -349,19 +349,13 @@ async def shop(ctx):
 @bot.command(name='buy', help='Buy an item from the shop.\n$buy "name of shop item in quotes" quantity"\nquantity defaults to 1')
 async def buy(ctx, name, quantity=1):
     # see if name exists in the Shop
-    item = None
     name = name.lower()
-
-    for shop_item in main_shop.items:
-        if name == shop_item.name:
-            item = shop_item
-            break
+    item = bot_utils.check_item_exists(name)
 
     if item is None:
         embed = discord.Embed(
             title="Error", description='The shop does not sell this item', color=ERROR_COLOR)
-        await ctx.send(embed=embed)
-        return
+        return await ctx.send(embed=embed)
 
     # see if quantity <= max_quantity
     try:
@@ -373,11 +367,11 @@ async def buy(ctx, name, quantity=1):
         await ctx.send(embed=embed)
         return
 
-    success = await add_to_inventory(ctx, item.id, quantity, output=True)
+    success = await add_to_inventory(ctx, bot_utils.item_id_lookup(name), quantity, output=True)
 
     if success:
         bot_utils.update_points(
-            ctx.guild, ctx.author, -1 * quantity * item.price)
+            ctx.guild, ctx.author, -1 * quantity * item['price'])
 
 
 @bot.command(name='explore', help='explore')
@@ -407,7 +401,7 @@ async def explore(ctx, location):
                 success_condition = random.randint(0, 100)
                 item_found = bot_utils.item_lookup(item_ids[item_to_check])
 
-                if 1 <= success_condition < (item_found.probability * 100):
+                if 1 <= success_condition < (item_found['probability'] * 100):
                     await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
                     break
                 else:
@@ -416,7 +410,7 @@ async def explore(ctx, location):
             description = ""
 
             if item_found is not None:
-                description += f'You found a(n) {item_found.name.title()}\n'
+                description += f'You found a(n) {item_found["name"].title()}\n'
             else:
                 description += 'You found nothing.\n'
 
@@ -443,13 +437,8 @@ async def explore(ctx, location):
 @bot.command(name='consume', help='Consumes a food item to restore energy')
 async def consume(ctx, item_name):  # ex: $consume "coconut"
     # checking to see if the item exists in general
-    item = None
     item_name = item_name.lower()
-
-    for item_id, curr_item in bot_utils.items.items():
-        if curr_item.name == item_name:
-            item = curr_item
-            break
+    item = bot_utils.check_item_exists(item_name)
 
     if item is None:
         embed = discord.Embed(title="Error",
@@ -457,16 +446,7 @@ async def consume(ctx, item_name):  # ex: $consume "coconut"
         return await ctx.send(embed=embed)
 
     # check to see if item exists in inventory
-    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
-    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
-    inventory_data = inventory_doc['inventories'][inventory_id]
-
-    item_id = -1
-
-    for curr_item_id in inventory_data['inventory']:
-        if bot_utils.item_lookup(curr_item_id).name == item_name:
-            item_id = curr_item_id
-            break
+    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
 
     if item_id == -1:
         embed = discord.Embed(title="Error",
@@ -474,12 +454,12 @@ async def consume(ctx, item_name):  # ex: $consume "coconut"
         return await ctx.send(embed=embed)
 
     # access to item name and id as well as the object
-    if not isinstance(item, EdibleItem):
+    if item['type'] != "FoodItem" and item['type'] != "DrinkItem":
         embed = discord.Embed(title="Error",
                               description=f"You can't eat {item_name.title()}, {ctx.author.name}", color=ERROR_COLOR)
         return await ctx.send(embed=embed)
 
-    item_energy = item.energy
+    item_energy = item['energy']
 
     # add energy to user
     doc = bot_utils.get_userdata_doc(ctx.guild)
@@ -535,7 +515,8 @@ async def remove_inventory(ctx, item_name):  # ex: $remove "coconut"
         return await ctx.send(embed=embed)
 
     # check to see if exists in the inventory
-    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+    item_id = bot_utils.check_item_exists_inventory(
+        ctx.guild, ctx.author, item_name)
 
     if item_id == -1:
         embed = discord.Embed(title="Error",
@@ -545,7 +526,6 @@ async def remove_inventory(ctx, item_name):  # ex: $remove "coconut"
     # remove item and decrease size
     remove_from_inventory(ctx.guild, ctx.author, item_id)
     await display_inventory(ctx)
-
 
 
 @bot.command(name='cheers', help='Gives someone an alcoholic beverage if you one if your inventory')
@@ -567,18 +547,8 @@ async def cheers(ctx, person):
 
 @bot.command(name='read', help='Reads and item that contains a message')
 async def read_item(ctx, item_name):
-    item = None
     item_name = item_name.lower()
-    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
-    inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
-    inventory = inventory_doc['inventories'][inventory_id]['inventory']
-
-    for item_id in inventory.keys():
-        current_item = bot_utils.item_lookup(item_id)
-
-        if current_item.name == item_name:
-            item = current_item
-            break
+    item = bot_utils.check_item_exists(item_name)
 
     if item is None:
         # error: item does not exist in your inventory
@@ -586,14 +556,22 @@ async def read_item(ctx, item_name):
                               description="Item can't be found", color=ERROR_COLOR)
         return await ctx.send(embed=embed)
 
-    if not isinstance(item, BottleItem):
+    # check to see if item exists in inventory
+    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+
+    if item_id == -1:
+        embed = discord.Embed(title="Error",
+                              description="Item not in your inventory", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    if item['type'] != 'BottleItem':
         # error: item is not something that can be read
         embed = discord.Embed(title="Error",
                               description="That's not something that you can read", color=ERROR_COLOR)
         return await ctx.send(embed=embed)
 
-    embed = discord.Embed(title=f"Message in a Bottle: {item.name.title()}",
-                          description=item.message, color=ACCENT_COLOR)
+    embed = discord.Embed(title=f"Message in a Bottle: {item['name'].title()}",
+                          description=item['message'], color=ACCENT_COLOR)
     await ctx.send(file=discord.File('images/opening_message.gif'))
     await ctx.send(embed=embed)
 
@@ -738,7 +716,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
 
     item = bot_utils.item_lookup(item_id)
 
-    if quantity <= item.max_quantity:
+    if quantity <= item['max_quantity']:
         inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
         inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
         inventory_data = inventory_doc['inventories'][inventory_id]
@@ -749,7 +727,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
             except KeyError:
                 current_quantity = 0
 
-            if current_quantity + quantity <= item.max_quantity:
+            if current_quantity + quantity <= item['max_quantity']:
                 try:
                     inventory_data['inventory'][item_id] += quantity
                 except KeyError:
@@ -766,7 +744,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
 
                 if output:
                     embed = discord.Embed(title='Inventory Update',
-                                          description=f"Added {quantity} of {item.name.title()} to your inventory", color=ACCENT_COLOR)
+                                          description=f"Added {quantity} of {item['name'].title()} to your inventory", color=ACCENT_COLOR)
                     await ctx.send(embed=embed)
 
                 return True
@@ -774,7 +752,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
                 # you can only have max in your inventory. you currently have x
                 if output:
                     embed = discord.Embed(title='Inventory Update Error',
-                                          description=f"The most amount of {item.name.title()} you can hold is {item.max_quantity}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
+                                          description=f"The most amount of {item['name'].title()} you can hold is {item['max_quantity']}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
                     await ctx.send(embed=embed)
 
                 return False
@@ -790,7 +768,7 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
         # you cant buy that many of this item
         if output:
             embed = discord.Embed(title='Inventory Update Error',
-                                  description=f"The most amount of {item.name.title()} you can buy is {item.max_quantity}", color=ERROR_COLOR)
+                                  description=f"The most amount of {item['name'].title()} you can buy is {item['max_quantity']}", color=ERROR_COLOR)
             await ctx.send(embed=embed)
 
         return False
@@ -840,7 +818,7 @@ def check_alcohol(guild, user):
     for item_id in inventory_info['inventory'].keys():
         item = bot_utils.item_lookup(item_id)
 
-        if isinstance(item, DrinkItem) and item.is_alcohol:
+        if item['type'] == 'DrinkItem' and item['is_alcohol']:
             return item_id
 
     return None

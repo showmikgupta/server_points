@@ -1,0 +1,134 @@
+{
+    "0": {
+        "type": "DrinkItem",
+        "name": "ale",
+        "price": 15,
+        "description": "A classic alchoholic drink made from the best ingredients on the island",
+        "max_quantity": 5,
+        "probability": 0,
+        "energy": 0,
+        "is_alcohol": true
+    },
+    "1": {
+        "type": "FoodItem",
+        "name": "coconut",
+        "price": 5,
+        "description": "A refreshing snack that can be found at the beach",
+        "max_quantity": 10,
+        "probability": 0.6,
+        "energy": 10
+    },
+    "2": {
+        "type": "FoodItem",
+        "name": "fish",
+        "price": 10,
+        "description": "Smelly and slimey delicacy of the ocean",
+        "max_quantity": 10,
+        "probability": 0.2,
+        "energy": 10
+    },
+    "3": {
+        "type": "FoodItem",
+        "name": "crab",
+        "price": 15,
+        "description": "Red and delicious seafood",
+        "max_quantity": 10,
+        "probability": 0.25,
+        "energy": 30
+    },
+    "4": {
+        "type": "CosmeticItem",
+        "name": "straw hat",
+        "price": 20,
+        "description": "Flimsy hat perfect to wearing at the beach",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "survivability": 1
+    },
+    "5": {
+        "type": "CosmeticItem",
+        "name": "sandals",
+        "price": 15,
+        "description": "Pair of worn footwear you found at the beach",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "survivability": 1
+    },
+    "6": {
+        "type": "CosmeticItem",
+        "name": "umbrella hat",
+        "price": 35,
+        "description": "An umbrella and a hat in one!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "survivability": 1
+    },
+    "7": {
+        "type": "BottleItem",
+        "name": "pogfish in a bottle",
+        "price": -1,
+        "description": "Wow! A real life Pogfish! Wait... What's a pog?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": null,
+        "object": "pogfish"
+    },
+    "8": {
+        "type": "BottleItem",
+        "name": "stock report",
+        "price": -1,
+        "description": "Cryptic message... What's GME and how is it going to the moon?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "GME TO THE MOON!",
+        "object": null
+    },
+    "9": {
+        "type": "BottleItem",
+        "name": "blobfish in a bottle",
+        "price": -1,
+        "description": "Wow! A real life Blobfish! Wait... EWW!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": null,
+        "object": "blobfish"
+    },
+    "10": {
+        "type": "BottleItem",
+        "name": "love letter",
+        "price": -1,
+        "description": "Oh island love. Isn't it beautiful?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "My sweet Billy.\nI long to spend the rest of my days in your arms while on top of the energy mountain. The home we could build would be perfect to raise children after washing ashore this island.\nWith love and lust,\nCarolina D.",
+        "object": null
+    },
+    "11": {
+        "type": "BottleItem",
+        "name": "cry for help",
+        "price": -1,
+        "description": "Someones in trouble! Hurry!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "The lightining! It won't stop clashing on the land. Gerald, we need your armor to save us! If you get this, come to our home and rescue the kids. Cari and I are going to the source to stop it.\n\t-Billy",
+        "object": null
+    },
+    "12": {
+        "type": "BottleItem",
+        "name": "message in bottle",
+        "price": -1,
+        "description": "Ohh! A message!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "You have small booty... and booty too ARGGHAHAH",
+        "object": null
+    },
+    "13": {
+        "type": "Item",
+        "name": "plastic shovel",
+        "price": -1,
+        "description": "Tool to help you dig...barely",
+        "max_quantity": 1,
+        "probability": 0.1
+    }
+}
