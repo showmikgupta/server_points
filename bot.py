@@ -410,6 +410,8 @@ async def explore(ctx, location):
                 if 1 <= success_condition < (item_found.probability * 100):
                     await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
                     break
+                else:
+                    item_found = None
 
             description = ""
 
@@ -420,7 +422,7 @@ async def explore(ctx, location):
 
             description += 'You have now exited the beach'
 
-            await asyncio.sleep(5)
+            # await asyncio.sleep(5)
             embed = discord.Embed(title="Returning to town",
                                   description=description, color=ACCENT_COLOR)
             await ctx.send(embed=embed)
@@ -518,6 +520,32 @@ async def display_energy(ctx):
     embed = discord.Embed(title="Energy",
                           description=f"You have {bot_utils.get_user_energy(ctx.guild, ctx.author)} energy remaining", color=ACCENT_COLOR)
     await ctx.send(embed=embed)
+
+
+@bot.command(name='remove', help='Removes an item from your inventory')
+async def remove_inventory(ctx, item_name):  # ex: $remove "coconut"
+    item_name = item_name.lower()
+
+    # check to see if exists in the game
+    item = bot_utils.check_item_exists(item_name)
+
+    if item is None:
+        embed = discord.Embed(title="Error",
+                              description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    # check to see if exists in the inventory
+    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+
+    if item_id == -1:
+        embed = discord.Embed(title="Error",
+                              description="Item not in your inventory", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+
+    # remove item and decrease size
+    remove_from_inventory(ctx.guild, ctx.author, item_id)
+    await display_inventory(ctx)
+
 
 
 @bot.command(name='cheers', help='Gives someone an alcoholic beverage if you one if your inventory')
@@ -711,11 +739,8 @@ async def add_to_inventory(ctx, item_id, quantity, output=True):
     item = bot_utils.item_lookup(item_id)
 
     if quantity <= item.max_quantity:
-        inventory_id = bot_utils.get_user_inventory_id(
-            ctx.guild, ctx.author)  # get users inventory id from userdata db
-        # get all inventory data from the users guild
+        inventory_id = bot_utils.get_user_inventory_id(ctx.guild, ctx.author)
         inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
-        # get the users inventory information
         inventory_data = inventory_doc['inventories'][inventory_id]
 
         if inventory_data['size'] + quantity <= inventory_data['capacity']:
@@ -787,7 +812,9 @@ def remove_from_inventory(guild, user, item_id, quantity=1):
                 inventory_info['size'] -= inventory_info['inventory'][item_id]
                 inventory_info['inventory'][item_id] = 0
 
-            inventory_info['size'] -= quantity
+            if inventory_info['inventory'][item_id] == 0:
+                del inventory_info['inventory'][item_id]
+
         except KeyError:
             return False
 

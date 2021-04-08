@@ -532,3 +532,22 @@ def get_user_inventory(guild, user):
 def get_user_energy(guild, user):
     doc = get_userdata_doc(guild)
     return doc['members'][str(user.id)]['energy']
+
+
+def check_item_exists(item_name):
+    for item_id, curr_item in items.items():
+        if curr_item.name == item_name:
+            return curr_item
+
+    return None
+
+def check_item_exists_inventory(guild, user, item_name):
+    inventory_id = get_user_inventory_id(guild, user)
+    inventory_doc = get_inventory_doc(guild)
+    inventory_data = inventory_doc['inventories'][inventory_id]
+
+    for item_id in inventory_data['inventory']:
+        if item_lookup(item_id).name == item_name:
+            return item_id
+
+    return -1
