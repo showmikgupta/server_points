@@ -487,7 +487,7 @@ async def explore(ctx, location):
             item_found = None
 
             for _ in range(7):
-                item_to_check = random.randint(0, 8)  # Edit Range
+                item_to_check = random.randint(0, 11)  # Edit Range
                 success_condition = random.randint(0, 100)
                 item_found = bot_utils.item_lookup(item_ids[item_to_check])
 
