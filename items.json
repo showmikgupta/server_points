@@ -130,5 +130,114 @@
         "description": "Tool to help you dig...barely",
         "max_quantity": 1,
         "probability": 0.1
+    },
+    "14": {
+        "type": "BottleItem",
+        "name": "pogfish in a bottle",
+        "price": -1,
+        "description": "Wow! A real life Pogfish! Wait... What's a pog?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": null,
+        "object": "pogfish"
+    },
+    "15": {
+        "type": "BottleItem",
+        "name": "stock report",
+        "price": -1,
+        "description": "Cryptic message... What's GME and how is it going to the moon?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "GME TO THE MOON!",
+        "object": null
+    },
+    "16": {
+        "type": "BottleItem",
+        "name": "blobfish in a bottle",
+        "price": -1,
+        "description": "Wow! A real life Blobfish! Wait... EWW!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": null,
+        "object": "blobfish"
+    },
+    "17": {
+        "type": "BottleItem",
+        "name": "love letter",
+        "price": -1,
+        "description": "Oh island love. Isn't it beautiful?",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "My sweet Billy.\nI long to spend the rest of my days in your arms while on top of the energy mountain. The home we could build would be perfect to raise children after washing ashore this island.\nWith love and lust,\nCarolina D.",
+        "object": null
+    },
+    "18": {
+        "type": "BottleItem",
+        "name": "cry for help",
+        "price": -1,
+        "description": "Someones in trouble! Hurry!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "The lightining! It won't stop clashing on the land. Gerald, we need your armor to save us! If you get this, come to our home and rescue the kids. Cari and I are going to the source to stop it.\n\t-Billy",
+        "object": null
+    },
+    "19": {
+        "type": "BottleItem",
+        "name": "message in bottle",
+        "price": -1,
+        "description": "Ohh! A message!",
+        "max_quantity": 1,
+        "probability": 0.1,
+        "message": "You have small booty... and booty too ARGGHAHAH",
+        "object": null
+    },
+    "20": {
+        "type": "FoodItem",
+        "name": "fish",
+        "price": 10,
+        "description": "Beautiful, fresh water delicacy!",
+        "max_quantity": 10,
+        "probability": 0.2,
+        "energy": 10
+    },
+    "21": {
+        "type": "Miscellaneous",
+        "name": "\"gold\" ring",
+        "price": 100,
+        "description": "A piece of gold! Wait a second...",
+        "max_quantity": 10,
+        "probability": 0.5
+    },
+    "22": {
+        "type": "FoodItem",
+        "name": "xp fish",
+        "price": 10,
+        "description": "This fish is definitely on steroids...",
+        "max_quantity": 10,
+        "probability": 0.9
+    },
+    "23": {
+        "type": "FoodItem",
+        "name": "tasty fish",
+        "price": 10,
+        "description": "A fish for only those with the fanciest of palattes!",
+        "max_quantity": 10,
+        "probability": 0.9
+    },
+    "24": {
+        "type": "FoodItem",
+        "name": "ugly fish",
+        "price": 10,
+        "description": "Damn... I would touch that with a 9 foot pole...",
+        "max_quantity": 10,
+        "probability": 0.8
+    },
+    "25": {
+        "type": "FoodItem",
+        "name": "golden fish",
+        "price": 500,
+        "description": "Pay day baby!",
+        "max_quantity": 10,
+        "probability": 0.9
     }
 }

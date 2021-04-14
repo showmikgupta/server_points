@@ -418,7 +418,8 @@ async def explore(ctx, location):
     doc = bot_utils.get_userdata_doc(ctx.guild)
     currentUserEnergy = doc['members'][str(ctx.author.id)]['energy']
     beachEnergyCost = 5
-    # loaction2EnergyCost = .15
+    pondEnergyCost = 1
+    # location2EnergyCost = .15
     # location3EnergyCost = .25
     # location4EnergyCost = .50
     if location.lower() == 'beach':
@@ -472,6 +473,55 @@ async def explore(ctx, location):
                                   description=f"You don't have enough energy to explore right now. Go eat something.\nCurrent energy: {currentUserEnergy}", color=ERROR_COLOR)
             await ctx.send(embed=embed)
 
+    elif location.lower() == 'pond':
+        if currentUserEnergy >= pondEnergyCost:
+            # consume energy
+            doc['members'][str(ctx.author.id)]['energy'] -= pondEnergyCost
+
+            embed = discord.Embed(
+                title="Exploring", description='You have now entered the pond... It will take some time to find some items. Patience is key.', color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+            await ctx.send(file=discord.File('images/entering_pond.gif'))
+
+            item_ids = ["13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"]  # Edit Item Numbers
+            item_found = None
+
+            for _ in range(7):
+                item_to_check = random.randint(0, 8)  # Edit Range
+                success_condition = random.randint(0, 100)
+                item_found = bot_utils.item_lookup(item_ids[item_to_check])
+
+                if 1 <= success_condition < (item_found['probability'] * 100):
+                    await add_to_inventory(ctx, item_ids[item_to_check], 1, output=False)
+                    break
+                else:
+                    item_found = None
+
+            description = ""
+
+            if item_found is not None:
+                description += f'You found a(n) {item_found["name"].title()}\n'
+            else:
+                description += 'You found nothing.\n'
+
+            description += 'You have now exited the pond'
+
+            # await asyncio.sleep(5)
+            embed = discord.Embed(title="Returning to town",
+                                  description=description, color=ACCENT_COLOR)
+            await ctx.send(embed=embed)
+            await ctx.send(file=discord.File('images/returning_to_town.gif'))
+
+            user_data_collection.update_one(
+                {'guild_id': doc['guild_id']},
+                {"$set":
+                    {
+                        'members': doc['members']
+                    }})
+        else:
+            embed = discord.Embed(title="Low on energy",
+                                  description=f"You don't have enough energy to explore right now. Go eat something.\nCurrent energy: {currentUserEnergy}", color=ERROR_COLOR)
+            await ctx.send(embed=embed)
 
 @bot.command(name='consume', help='Consumes a food item to restore energy')
 async def consume(ctx, item_name):  # ex: $consume "coconut"
