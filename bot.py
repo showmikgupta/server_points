@@ -754,6 +754,28 @@ def upgrade_database():
         #         }})
 
 
+def upgrade_inventory_database():
+    docs = inventory_collection.find({})
+
+    for doc in docs:
+        inventories = doc['inventories']
+
+        for inventory_id in inventories.keys():
+            inventories[inventory_id]['stash_capacity'] = 10;
+            inventories[inventory_id]['stash_size'] = 0;
+            inventories[inventory_id]['stash'] = {}
+
+        inventory_collection.update_one(
+            {'guild_id': doc['guild_id']},
+            {"$set":
+                {
+                    'inventories': inventories
+                }})
+
+
+
+
+
 async def add_to_inventory(ctx, item_id, quantity, output=True):
     if type(item_id) == int:
         item_id = str(item_id)
