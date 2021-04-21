@@ -572,3 +572,15 @@ def check_item_exists_inventory(guild, user, item_name):
         return item_id if inventory_data['inventory'][item_id] else -1
     except KeyError:
         return -1
+
+
+def check_item_exists_stash(guild, user, item_name):
+    inventory_id = get_user_inventory_id(guild, user)
+    inventory_doc = get_inventory_doc(guild)
+    inventory_data = inventory_doc['inventories'][inventory_id]
+
+    try:
+        item_id = name_to_id[item_name]
+        return item_id if inventory_data['stash'][item_id] else -1
+    except KeyError:
+        return -1
