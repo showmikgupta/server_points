@@ -889,3 +889,155 @@ def check_inventory(ctx, item_type=None, item_id=None):
             for item_id, quantity in inventory_info['inventory'].items():
                 if bot_utils.item_lookup(item_id).id == int(item_id):
                     return quantity
+
+
+def remove_from_stash(guild, user, item_id, quantity=1):
+    inventory_id = bot_utils.get_user_inventory_id(guild, user)
+    inventory_doc = bot_utils.get_inventory_doc(guild)
+    inventory_info = inventory_doc['inventories'][inventory_id]
+
+    if inventory_info['stash_size'] == 0:
+        return False
+    else:
+        try:
+            if inventory_info['stash'][item_id] - quantity >= 0:
+                inventory_info['stash_size'] -= quantity
+                inventory_info['stash'][item_id] -= quantity
+            else:
+                inventory_info['stash_size'] -= inventory_info['stash'][item_id]
+                inventory_info['stash'][item_id] = 0
+
+            if inventory_info['stash'][item_id] == 0:
+                del inventory_info['stash'][item_id]
+
+        except KeyError:
+            return False
+
+        inventory_collection.update_one(
+            {'guild_id': guild.id},
+            {"$set":
+                {
+                    'inventories': inventory_doc['inventories']
+                }})
+
+        return True
+
+
+async def add_to_stash(guild, user, item_id, quantity=1):
+    if type(item_id) == int:
+        item_id = str(item_id)
+
+    item = bot_utils.item_lookup(item_id)
+
+    if quantity <= item['max_quantity']:
+        inventory_id = bot_utils.get_user_inventory_id(guild, user)
+        inventory_doc = bot_utils.get_inventory_doc(guild)
+        inventory_data = inventory_doc['inventories'][inventory_id]
+
+        if inventory_data['stash_size'] + quantity <= inventory_data['stash_capacity']:
+            try:
+                current_quantity = inventory_data['stash'][item_id]
+            except KeyError:
+                current_quantity = 0
+
+            if current_quantity + quantity <= item['max_quantity']:
+                try:
+                    inventory_data['stash'][item_id] += quantity
+                except KeyError:
+                    inventory_data['stash'][item_id] = quantity
+
+                inventory_data['stash_size'] += quantity
+
+                inventory_collection.update_one(
+                    {'guild_id': guild.id},
+                    {"$set":
+                     {
+                         'inventories': inventory_doc['inventories']
+                     }})
+
+                return True
+            else:
+                # you can only have max in your inventory. you currently have x
+                if output:
+                    embed = discord.Embed(title='Stash Update Error',
+                                          description=f"The most amount of {item['name'].title()} you can hold is {item['max_quantity']}. You currently have {inventory_data['inventory'][item_id]}", color=ERROR_COLOR)
+                    await ctx.send(embed=embed)
+
+                return False
+        else:
+            # not enough space in inventory
+            if output:
+                embed = discord.Embed(title='Stash Update Error',
+                                      description="You don't have enough space in your stash", color=ERROR_COLOR)
+                await ctx.send(embed=embed)
+
+            return False
+    else:
+        # you cant buy that many of this item
+        if output:
+            embed = discord.Embed(title='Inventory Update Error',
+                                  description=f"The most amount of {item['name'].title()} you can buy is {item['max_quantity']}", color=ERROR_COLOR)
+            await ctx.send(embed=embed)
+
+        return False
+
+
+@bot.command(name='stash', help='opens up the user stash')
+async def display_stash(ctx, item_name =None):
+    if item_name is not None:
+        await stash_item(ctx, item_name)
+
+    doc = bot_utils.get_userdata_doc(ctx.guild)
+    inventory_id = doc['members'][str(ctx.author.id)]['inventory_id']
+    inventory_doc = bot_utils.get_inventory_doc(ctx.guild)
+    inventories = inventory_doc['inventories']
+    inventory_info = inventories[str(inventory_id)]
+    inventory = inventory_info['stash']
+
+    embed = discord.Embed(title=f"{ctx.author.name}'s Stash",
+                          description=f"Capacity: {inventory_info['stash_size']}/{inventory_info['stash_capacity']}\nYou have the following items:",
+                          color=ACCENT_COLOR)
+
+    for item_id, item_quantity in inventory.items():
+        item_name = bot_utils.item_lookup(item_id)['name']
+        embed.add_field(name=item_name.title(),
+                        value=item_quantity, inline=True)
+
+    await ctx.send(embed=embed)
+
+async def stash_item(ctx, item_name):  # ex: $consume "coconut"
+     # checking to see if the item exists in general
+    item_name = item_name.lower()
+    item = bot_utils.check_item_exists(item_name)
+    if item is None:
+        embed = discord.Embed(title="Error",
+                             description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+     # check to see if item exists in inventory
+    item_id = bot_utils.check_item_exists_inventory(ctx.guild, ctx.author, item_name)
+
+    if item_id == -1:
+        embed = discord.Embed(title="Error",
+                            description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+    remove_from_inventory(ctx.guild, ctx.author, item_id, quantity=1)
+    await add_to_stash(ctx.guild, ctx.author, item_id, quantity=1)
+    #need to be able to put items from the inventory into the stash
+    #display stash in an imbed
+@bot.command(name='unstash', help='takes an item from the stash')
+async def unstash_item(ctx, item_name):
+    item_name = item_name.lower()
+    item = bot_utils.check_item_exists(item_name)
+    if item is None:
+        embed = discord.Embed(title="Error",
+                             description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+     # check to see if item exists in inventory
+    item_id = bot_utils.check_item_exists_stash(ctx.guild, ctx.author, item_name)
+    print(item, item_id)
+    if item_id == -1:
+        embed = discord.Embed(title="Error",
+                            description="Item can't be found", color=ERROR_COLOR)
+        return await ctx.send(embed=embed)
+    remove_from_stash(ctx.guild, ctx.author, item_id, quantity=1)
+    await add_to_inventory(ctx, item_id, quantity=1)
